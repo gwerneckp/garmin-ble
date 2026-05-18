@@ -22,6 +22,13 @@ Homepage = "https://github.com/example/garmin_ble"
 [tool.setuptools]
 packages = ["garmin_ble", "garmin_ble.protobuf"]
 
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0.0",
+    "pytest-mock>=3.10.0",
+    "pytest-asyncio>=0.21.0"
+]
+
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "function"
