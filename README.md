@@ -9,7 +9,6 @@
 [![PyPI](https://img.shields.io/pypi/v/garmin-ble)](https://pypi.org/project/garmin-ble/)
 [![Python Version](https://img.shields.io/pypi/pyversions/garmin-ble)](https://pypi.org/project/garmin-ble/)
 [![License](https://img.shields.io/pypi/l/garmin-ble)](https://www.gnu.org/licenses/agpl-3.0)
-[![PyPI Downloads](https://img.shields.io/pypi/dm/garmin-ble)](https://pypi.org/project/garmin-ble/)
 
 A clean-room Python implementation of Garmin's proprietary BLE protocol (GFDI V2), reverse-engineered from [Gadgetbridge](https://codeberg.org/Freeyourgadget/Gadgetbridge). Stream live telemetry from your Garmin watch directly to your computer — no cloud, no phone, no Garmin Connect required.
 

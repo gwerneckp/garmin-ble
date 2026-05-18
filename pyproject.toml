@@ -16,6 +16,16 @@ dependencies = [
     "protobuf>=4.0.0"
 ]
 license = { text = "AGPL-3.0-only" }
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "License :: OSI Approved :: GNU Affero General Public License v3",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+]
 
 [project.urls]
 Homepage = "https://github.com/gabrielwerneck/garmin-ble"
