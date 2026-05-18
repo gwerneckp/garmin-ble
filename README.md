@@ -1,10 +1,8 @@
-<picture>
+# <picture>
   <source media="(prefers-color-scheme: dark)" srcset="assets/logo.png">
   <source media="(prefers-color-scheme: light)" srcset="assets/logo.png">
-  <img alt="garmin-ble logo" src="assets/logo.png" width="100" height="100" align="right">
-</picture>
-
-# garmin-ble
+  <img alt="garmin-ble logo" src="assets/logo.png" width="100" height="100" align="left" style="padding-right: 8px;">
+</picture> garmin-ble
 
 [![PyPI](https://img.shields.io/pypi/v/garmin-ble)](https://pypi.org/project/garmin-ble/)
 [![Python Version](https://img.shields.io/pypi/pyversions/garmin-ble)](https://pypi.org/project/garmin-ble/)
@@ -41,7 +39,7 @@ pip install garmin-ble
 Or install from source with dev dependencies:
 
 ```bash
-git clone https://github.com/gabrielwerneck/garmin-ble.git
+git clone https://github.com/gwerneckp/garmin-ble.git
 cd garmin-ble
 pip install -e ".[dev]"
 ```
