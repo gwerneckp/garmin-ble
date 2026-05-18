@@ -1,0 +1,20 @@
+[build-system]
+requires = ["setuptools>=61.0.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "garmin_ble"
+version = "0.1.0"
+description = "A Python library for interacting with Garmin proprietary BLE protocols."
+readme = "README.md"
+authors = [
+    { name = "Gabriel Werneck" }
+]
+requires-python = ">=3.9"
+dependencies = [
+    "bleak>=0.21.0",
+    "protobuf>=4.0.0"
+]
+
+[project.urls]
+Homepage = "https://github.com/example/garmin_ble"

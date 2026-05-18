@@ -1,0 +1,22 @@
+syntax = "proto2";
+
+package garmin_vivomovehr;
+
+
+message AppConfigService {
+  optional AppConfig appConfigGet = 1;
+  optional appConfigStatus appConfigGetStatus = 2;
+  optional AppConfig appConfigSet = 3;
+  optional appConfigStatus appConfigSetStatus = 4;
+  optional AppConfig appConfigRet = 5;
+
+  message appConfigStatus {
+    required bytes appId = 1;
+    optional uint32 status = 2; // 1 if it has settings / set was success, 2 app not installed / does not have settings
+  }
+
+  message AppConfig {
+    required bytes appId = 1;
+    optional bytes appConfig = 2;
+  }
+}

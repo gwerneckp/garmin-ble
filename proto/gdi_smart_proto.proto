@@ -1,0 +1,36 @@
+syntax = "proto2";
+
+package garmin_vivomovehr;
+
+
+import "gdi_authentication_service.proto";
+import "gdi_device_status.proto";
+import "gdi_file_sync_service.proto";
+import "gdi_find_my_watch.proto";
+import "gdi_core.proto";
+import "gdi_http_service.proto";
+import "gdi_app_config_service.proto";
+import "gdi_installed_apps_service.proto";
+import "gdi_data_transfer_service.proto";
+import "gdi_sms_notification.proto";
+import "gdi_calendar_service.proto";
+import "gdi_settings_service.proto";
+import "gdi_notifications_service.proto";
+import "gdi_ecg_service.proto";
+
+message Smart {
+    optional CalendarService calendar_service = 1;
+    optional HttpService http_service = 2;
+    optional AppConfigService app_config_service = 4;
+    optional InstalledAppsService installed_apps_service = 3;
+    optional DataTransferService data_transfer_service = 7;
+    optional DeviceStatusService device_status_service = 8;
+    optional FindMyWatchService find_my_watch_service = 12;
+    optional CoreService core_service = 13;
+    optional SmsNotificationService sms_notification_service = 16;
+    optional AuthenticationService authenticationService = 27;
+    optional EcgService ecg_service = 39;
+    optional SettingsService settings_service = 42;
+    optional FileSyncService file_sync_service = 43;
+    optional NotificationsService notifications_service = 49;
+}

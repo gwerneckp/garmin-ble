@@ -1,0 +1,88 @@
+syntax = "proto2";
+
+package garmin_vivomovehr;
+
+
+message HttpService {
+  enum Method {
+    UNKNOWN_METHOD = 0;
+    GET = 1;
+    PUT = 2;
+    POST = 3;
+    DELETE = 4;
+    PATCH = 5;
+    HEAD = 6;
+  }
+
+  enum Status {
+    UNKNOWN_STATUS = 0;
+    OK = 100;
+    NETWORK_REQUEST_TIMED_OUT = 200;
+    FILE_TOO_LARGE = 300;
+    DATA_TRANSFER_ITEM_FAILURE = 400;
+  }
+
+  enum ResponseType {
+    JSON = 0;
+    URL_ENCODED = 1;
+    PLAIN_TEXT = 2;
+    XML = 3;
+  }
+
+  enum Version {
+    VERSION_1 = 0;
+    VERSION_2 = 1;
+  }
+
+  optional WebRequest webRequest = 1;
+  optional WebResponse webResponse = 2;
+  optional RawRequest rawRequest = 5;
+  optional RawResponse rawResponse = 6;
+
+  message WebRequest {
+    required string url = 1;
+    optional Method method = 2;
+    optional bytes headers = 3;
+    optional bytes body = 4;
+    optional uint32 maxResponseLength = 5;
+    optional bool httpHeadersInResponse = 6 [default = true];
+    optional bool compressResponseBody = 7 [default = false];
+    optional ResponseType responseType = 8;
+    optional Version version = 9 [default = VERSION_1];
+  }
+
+  message WebResponse {
+    optional Status status = 1;
+    optional uint32 httpStatus = 2;
+    optional bytes body = 3;
+    optional bytes headers = 4;
+    optional uint32 size = 5;
+    optional ResponseType responseType = 6;
+  }
+
+  message RawRequest {
+    required string url = 1;
+    optional Method method = 3;
+    repeated Header header = 5;
+    optional bool useDataXfer = 6;
+    optional bytes rawBody = 7;
+  }
+
+  message RawResponse {
+    optional Status status = 1;
+    optional uint32 httpStatus = 2;
+    optional bytes body = 3;
+    optional DataTransferItem xferData = 4;
+    repeated Header header = 5;
+  }
+
+  message DataTransferItem {
+    required uint32 id = 1;
+    required uint32 size = 2;
+  }
+
+  message Header {
+    required string key = 1;
+    required string value = 2;
+  }
+}

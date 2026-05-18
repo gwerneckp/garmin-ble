@@ -1,0 +1,41 @@
+syntax = "proto2";
+
+package garmin_vivomovehr;
+
+
+message EcgService {
+  optional EcgFileTransfer file_transfer = 1;
+}
+
+message EcgFileTransfer {
+  optional EcgInitRequest init_request = 3;
+  optional EcgInitResponse init_response = 4;
+  optional EcgTransferStartReq transfer_start_req = 5;
+  optional EcgTransferStartAck transfer_start_ack = 6;
+  optional EcgFile ecg_file = 7;
+  optional string transfer_finish_notify = 8; // ""
+  optional string transfer_finish_ack = 9; // ""
+}
+
+message EcgInitRequest {
+  optional string unk1 = 1; // uuid
+}
+
+message EcgInitResponse {
+  optional uint32 unk1 = 1; // 1
+}
+
+message EcgTransferStartReq {
+  optional string unk1 = 1; // ""
+}
+
+message EcgTransferStartAck {
+  optional uint32 unk2 = 2; // 1
+}
+
+message EcgFile {
+  optional bytes data = 1;
+  optional string name = 2;
+  optional uint32 unk3 = 3; // 0
+  optional uint32 unk4 = 4; // 1
+}

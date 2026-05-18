@@ -1,0 +1,82 @@
+syntax = "proto2";
+
+package garmin_vivomovehr;
+
+
+message FileSyncService {
+  optional FileRequest file_request = 1;
+  optional FileResponse file_response = 2;
+  optional FileListRequest file_list_request = 9;
+  optional FileListResponse file_list_response = 10;
+  optional NewFileNotification new_file_notification = 12;
+  optional FileSetFlags file_set_flags = 15;
+  optional FileUpdateNotification file_update_notification = 17;
+}
+
+message NewFileNotification {
+  optional File file = 1;
+  optional uint32 unk2 = 2; // 24
+  optional uint32 unk3 = 3; // 0
+  optional uint32 unk4 = 4; // 0
+  optional uint32 unk5 = 5; // 15
+  optional uint32 unk6 = 6; // 1
+}
+
+message FileSetFlags {
+  optional FileId file = 1;
+  optional FileId flags = 2;
+}
+
+message FileUpdateNotification {
+  optional FileId file = 1;
+  optional FileId flags = 2;
+}
+
+message FileRequest {
+  optional File file = 1;
+  optional uint32 unk2 = 2; // 24
+  optional uint32 unk3 = 3; // 0
+  optional uint32 unk4 = 4; // 0
+  optional uint32 unk5 = 5; // 15
+}
+
+message FileResponse {
+  optional uint32 status = 1; // 0 success 3 failure
+  optional uint32 unk2 = 2; // 0
+  optional uint32 handle = 3; // varies
+  optional uint32 unk7 = 7; // 11
+}
+
+message FileListRequest {
+  optional uint32 start_page_id = 2; // 33737
+  optional FileId flags1 = 4; // 0x000000000000a5a5 / 42405
+  optional FileId flags2 = 5; // 0x000000000000a5a5 / 42405
+}
+
+message FileListResponse {
+  optional uint32 unk1 = 1; // 0
+  optional uint32 unk2 = 2; // 2 on venu 4
+  optional uint32 next_page_id = 3; // 33737, incrementiong
+  repeated File file = 4;
+  optional uint32 unk6 = 6; // 1 on venu 4
+}
+
+message File {
+  optional FileId id = 1;
+  optional FileType type = 2;
+  optional uint32 size = 3;
+  optional uint32 page_id = 5; // 33652, 33653, ... incrementing
+  optional uint32 unk4 = 4; // 0 on venu 4
+  optional uint32 unk6 = 6; // 2 on venu 4
+}
+
+message FileId {
+  optional fixed64 id1 = 1;
+  optional fixed64 id2 = 2;
+}
+
+message FileType {
+  optional uint32 unk1 = 1; // 0
+  optional string name = 2;
+  optional uint32 code = 3; // 8 monitor 9 sports
+}
