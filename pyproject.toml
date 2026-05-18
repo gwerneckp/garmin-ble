@@ -15,9 +15,11 @@ dependencies = [
     "bleak>=0.21.0",
     "protobuf>=4.0.0"
 ]
+license = { text = "AGPL-3.0-only" }
 
 [project.urls]
-Homepage = "https://github.com/example/garmin_ble"
+Homepage = "https://github.com/gabrielwerneck/garmin-ble"
+Repository = "https://github.com/gabrielwerneck/garmin-ble"
 
 [tool.setuptools]
 packages = ["garmin_ble", "garmin_ble.protobuf"]
