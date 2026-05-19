@@ -15,34 +15,6 @@ import pygame
 from garmin_ble import GarminClient, GarminService
 from garmin_ble.logging import configure
 
-# ── Corrected Parser ───────────────────────────────────────────────────────
-
-def unpack_accelerometer(data: bytes):
-    if len(data) < 16:
-        return None, None
-
-    ts = struct.unpack_from('<H', data, 0)[0]
-    payload = data[2:16]
-
-    vals = []
-    for i in range(4):
-        b0, b1, b2 = payload[3*i], payload[3*i+1], payload[3*i+2]
-        v_even = b0 | ((b1 & 0x0F) << 8)
-        v_odd  = (b1 >> 4) | (b2 << 4)
-        vals.extend([v_even, v_odd])
-    
-    b0, b1 = payload[12], payload[13]
-    v8 = b0 | ((b1 & 0x0F) << 8)
-    vals.append(v8)
-
-    g_vals = [(v if v < 2048 else v - 4096) / 256.0 for v in vals]
-
-    samples = [
-        (g_vals[0], g_vals[1], g_vals[2]),
-        (g_vals[3], g_vals[4], g_vals[5]),
-        (g_vals[6], g_vals[7], g_vals[8]),
-    ]
-    return ts, samples
 
 # ── 3D Math ────────────────────────────────────────────────────────────────
 
@@ -211,8 +183,7 @@ class Watch3DApp:
         
         self.faces.append(((255, 50, 50), 2, [idx_12_tip, idx_12_l, idx_12_r]))
 
-    def on_accel(self, data: bytes):
-        ts, samples = unpack_accelerometer(data)
+    def on_accel(self, samples):
         if not samples:
             return
         

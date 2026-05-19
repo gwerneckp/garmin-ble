@@ -345,8 +345,35 @@ class GarminClientBase:
             if self.callbacks["stress"]: self.callbacks["stress"](level)
 
     def _parse_accel(self, data: bytes):
-        """Parse Accelerometer (Service 16). Raw sample data."""
-        if self.callbacks["accel"]: self.callbacks["accel"](data[1:])
+        """Parse Accelerometer (Service 16). Returns list of (X, Y, Z) float samples (in g)."""
+        if not self.callbacks["accel"] or len(data) < 17:
+            return
+
+        # data[0] is the service header (0x10)
+        # data[1:3] is the 16-bit timestamp (ignored)
+        payload = data[3:17]
+
+        vals = []
+        for i in range(4):
+            b0, b1, b2 = payload[3*i], payload[3*i+1], payload[3*i+2]
+            v_even = b0 | ((b1 & 0x0F) << 8)
+            v_odd  = (b1 >> 4) | (b2 << 4)
+            vals.extend([v_even, v_odd])
+        
+        b0, b1 = payload[12], payload[13]
+        v8 = b0 | ((b1 & 0x0F) << 8)
+        vals.append(v8)
+
+        # 12-bit signed -> float (1g = 256 LSB)
+        g_vals = [(v if v < 2048 else v - 4096) / 256.0 for v in vals]
+
+        samples = [
+            (g_vals[0], g_vals[1], g_vals[2]),
+            (g_vals[3], g_vals[4], g_vals[5]),
+            (g_vals[6], g_vals[7], g_vals[8]),
+        ]
+        
+        self.callbacks["accel"](samples)
 
     def _parse_body_battery(self, data: bytes):
         """Parse Body Battery (Service 20). Format: [level (int8)]."""
