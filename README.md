@@ -75,6 +75,10 @@ See the [`examples/`](./examples/) directory for more usage.
 
 ## Status & Roadmap
 
+See the [GitHub Issues](https://github.com/gwerneckp/garmin-ble/issues) for the
+full breakdown of planned features, known gaps, and in-progress work. Milestones
+map to release versions:
+
 | Phase | Goal | Status |
 |-------|------|--------|
 | 1 | 🏗️ BLE transport & handshake | ✅ Done |
@@ -83,8 +87,6 @@ See the [`examples/`](./examples/) directory for more usage.
 | 4 | 🔔 Notifications & media control | ⏳ Planned |
 | 5 | 📁 File transfers (FIT / GPX downloads) | ⏳ Planned |
 | 6 | 🗄️ Persistence & dashboard | ⏳ Planned |
-
-See [`ROADMAP.md`](./ROADMAP.md) for the full breakdown.
 
 ---
 
