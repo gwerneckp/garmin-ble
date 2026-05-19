@@ -8,7 +8,7 @@
 [![Python Version](https://img.shields.io/pypi/pyversions/garmin-ble)](https://pypi.org/project/garmin-ble/)
 [![License](https://img.shields.io/pypi/l/garmin-ble)](https://www.gnu.org/licenses/agpl-3.0)
 
-A clean-room Python implementation of Garmin's proprietary BLE protocol (GFDI V2), reverse-engineered from [Gadgetbridge](https://codeberg.org/Freeyourgadget/Gadgetbridge). Stream live telemetry from your Garmin watch directly to your computer — no cloud, no phone, no Garmin Connect required.
+A clean-room Python implementation of Garmin's proprietary BLE protocol (GFDI V2). Stream live telemetry from your Garmin watch directly to your computer: no cloud, no phone, no Garmin Connect required.
 
 ---
 
@@ -20,12 +20,20 @@ A clean-room Python implementation of Garmin's proprietary BLE protocol (GFDI V2
   - 📊 Heart Rate Variability (HRV)
   - 🫁 Blood Oxygen (SpO2)
   - 🌬️ Respiration Rate
+  - 🔥 Calories (total & active)
+  - ⚡ Intensity Minutes
+  - 🧘 Stress Level
+  - 🔋 Body Battery
+  - ⌚ Accelerometer
+- **On-Demand Service Registration** — telemetry services start only when you ask. No unwanted data streaming.
 - **Protocol Decoding** — full implementation of the Garmin GFDI V2 stack:
   - Automated handshake (`CLOSE_ALL`, `REGISTER_ML`)
   - MLR (Multi-Link Routing) packet multiplexing
   - COBS (Consistent Overhead Byte Stuffing) encoding/decoding
   - Compiled Protobufs for `gdi_smart_proto`
   - CRC16 integrity checking
+- **Automatic Reconnection** — survives BLE drops with exponential backoff
+- **Keep-Alive Heartbeat** — periodic time-sync to maintain the link
 - **Hackable** — pure Python, no binary blobs, no proprietary SDKs
 
 ---
@@ -50,7 +58,7 @@ pip install -e ".[dev]"
 
 ```python
 import asyncio
-from garmin_ble import GarminClient
+from garmin_ble import GarminClient, GarminService
 
 def on_heart_rate(hr, resting_hr):
     print(f"❤️  {hr} BPM (Resting: {resting_hr} BPM)")
@@ -60,6 +68,8 @@ async def main():
     client.on("hr", on_heart_rate)
 
     if await client.connect():
+        # Register and start only the services you want
+        await client.register_and_start_service(GarminService.REALTIME_HR)
         print("Connected! Streaming data...")
         await client.start_sync_loop()
 
@@ -69,7 +79,10 @@ asyncio.run(main())
 > [!TIP]
 > Make sure your watch is **not** connected to your phone via Bluetooth — Garmin watches only allow one BLE connection at a time.
 
-See the [`examples/`](./examples/) directory for more usage.
+> [!IMPORTANT]
+> Telemetry services are **not** auto-started. Use `register_and_start_service()` for each service you need (e.g., `GarminService.REALTIME_STEPS`, `GarminService.REALTIME_ACCELEROMETER`). Only the GFDI control channel is registered automatically.
+
+See the [`examples/`](./examples/) directory for more complete usage patterns — including `basic_telemetry.py` (simple start), `full_demo.py` (advanced features), and `tilt_volume.py` (accelerometer-driven Mac volume control).
 
 ---
 
@@ -100,6 +113,8 @@ This means:
 - **Callers** wire up the OS integration, external APIs, and user-facing features.
 
 This keeps the library focused, testable, and free of the endless feature creep that plagues integration-heavy projects.
+
+**Consider using Gadgetbridge instead if:** you want a full-featured open-source replacement for the Garmin Connect app on your Android phone.
 
 ## Project Mission
 

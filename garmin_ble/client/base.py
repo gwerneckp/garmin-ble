@@ -3,7 +3,7 @@ import struct
 from typing import Callable, Dict, Optional
 from bleak import BleakClient
 
-from ..constants import GARMIN_BASE_UUID, CLIENT_ID, GarminService, RequestType
+from ..constants import GARMIN_BASE_UUID, CLIENT_ID, GarminService, RequestType, GarminMessage
 from ..cobs import CobsCoDec
 from ..gfdi import GfdiMessageBuilder
 from ..protobuf import gdi_smart_proto_pb2
@@ -36,16 +36,33 @@ class GarminClientBase:
             "hrv": None,
             "spo2": None,
             "respiration": None,
-            "protobuf": None
+            "calories": None,
+            "intensity": None,
+            "stress": None,
+            "accel": None,
+            "body_battery": None,
+            "protobuf": None,
+            "disconnected": None,
+            "system_event": None,
         }
         
         self.cobs = CobsCoDec()
         self.max_write_size = 20  # Conservative default
         self._is_connected = False
 
+        # Heartbeat (periodic time-sync) task
+        self._heartbeat_task: Optional[asyncio.Task] = None
+        self._heartbeat_interval: float = 60.0
+
     @property
     def is_connected(self) -> bool:
         return self._is_connected and self.client and self.client.is_connected
+
+    def _disconnected_callback(self, client: BleakClient):
+        log.info("BLE Device disconnected.")
+        self._is_connected = False
+        if self.callbacks["disconnected"]:
+            self.callbacks["disconnected"]()
 
     def on(self, event_name: str, callback: Callable):
         """Register a callback for a specific high-level telemetry event."""
@@ -60,11 +77,15 @@ class GarminClientBase:
 
     async def connect(self, address: str, timeout: float = 5.0) -> bool:
         """Connect to a Garmin watch at a known BLE address."""
+        if self.is_connected:
+            log.debug("Already connected to %s", self.address)
+            return True
+
         log.info("Connecting to %s ...", address)
         self.address = address
 
         try:
-            self.client = BleakClient(address)
+            self.client = BleakClient(address, disconnected_callback=self._disconnected_callback)
             await self.client.connect(timeout=timeout)
             self._is_connected = True
         except Exception as e:
@@ -114,9 +135,48 @@ class GarminClientBase:
     async def disconnect(self):
         """Disconnect from the watch and clean up."""
         self._is_connected = False
+        await self.disable_heartbeat()
         if self.client and self.client.is_connected:
             await self.client.disconnect()
         self.service_handles.clear()
+
+    def enable_heartbeat(self, interval: float = 60.0):
+        """Start sending periodic TIME_UPDATED system events to the watch.
+
+        This keeps the connection alive and lets the watch know our current
+        time. The legacy Gadgetbridge code calls ``onSetTime()`` which sends
+        ``SystemEventMessage(TIME_UPDATED, 0)``.
+        """
+        self._heartbeat_interval = interval
+        if self._heartbeat_task is None or self._heartbeat_task.done():
+            self._heartbeat_task = asyncio.create_task(self._heartbeat_loop())
+            log.debug("Heartbeat enabled (interval=%.1fs).", interval)
+
+    async def disable_heartbeat(self):
+        """Stop the periodic heartbeat."""
+        if self._heartbeat_task and not self._heartbeat_task.done():
+            self._heartbeat_task.cancel()
+            try:
+                await self._heartbeat_task
+            except asyncio.CancelledError:
+                pass
+        self._heartbeat_task = None
+
+    async def _heartbeat_loop(self):
+        """Periodically send TIME_UPDATED to keep the connection alive."""
+        try:
+            while self._is_connected:
+                await asyncio.sleep(self._heartbeat_interval)
+                if not self._is_connected:
+                    break
+                msg = GfdiMessageBuilder.build_system_event(
+                    GarminClientBase.SYSTEM_EVENT_TIME_UPDATED, 0)
+                await self.send_gfdi_message(msg)
+                log.debug("Heartbeat: sent TIME_UPDATED.")
+        except asyncio.CancelledError:
+            pass
+        except Exception as e:
+            log.error("Heartbeat error: %s", e)
 
     async def send_gfdi_message(self, message: bytes):
         """Encode message with COBS and send over the GFDI handle with fragmentation."""
@@ -147,6 +207,35 @@ class GarminClientBase:
         if self.is_connected:
             await self.client.write_gatt_char(self.tx_char, payload, response=False)
 
+    async def send_service_command(self, service_code: int, command: bytes):
+        """Send a raw command byte/packet to a registered service."""
+        handle = self.get_handle_for_service(service_code)
+        if handle is None:
+            log.warning("Cannot send command: service %d not registered.", service_code)
+            return
+
+        payload = bytes([handle]) + command
+        if self.is_connected:
+            await self.client.write_gatt_char(self.tx_char, payload, response=False)
+
+    async def register_and_start_service(self, service_code: int):
+        """Register a service and send the 0x01 start command.
+
+        This is the manual alternative for services that the library no
+        longer starts automatically (Accelerometer, Calories, Intensity).
+
+        Example usage::
+
+            await client.register_and_start_service(GarminService.REALTIME_ACCELEROMETER)
+            await client.register_and_start_service(GarminService.REALTIME_CALORIES)
+            await client.register_and_start_service(GarminService.REALTIME_INTENSITY)
+        """
+        await self.request_service_registration(service_code)
+        # Give the watch a moment to assign the handle
+        await asyncio.sleep(0.5)
+        await self.send_service_command(service_code, b"\x01")
+        log.info("Service %d registered and started manually.", service_code)
+
     async def _notify_handler(self, sender, data: bytes):
         if not data: return
 
@@ -169,6 +258,7 @@ class GarminClientBase:
                 if status == 0:
                     self.service_handles[assigned_handle] = service_code
                     log.debug("Service registered: %d -> Handle 0x%02X", service_code, assigned_handle)
+                    self._on_service_registered(service_code, assigned_handle)
                     
         elif handle in self.service_handles:
             service_code = self.service_handles[handle]
@@ -183,6 +273,16 @@ class GarminClientBase:
                 self._parse_spo2(data)
             elif service_code == GarminService.REALTIME_RESPIRATION:
                 self._parse_respiration(data)
+            elif service_code == GarminService.REALTIME_CALORIES:
+                self._parse_calories(data)
+            elif service_code == GarminService.REALTIME_INTENSITY:
+                self._parse_intensity(data)
+            elif service_code == GarminService.REALTIME_STRESS:
+                self._parse_stress(data)
+            elif service_code == GarminService.REALTIME_ACCELEROMETER:
+                self._parse_accel(data)
+            elif service_code == GarminService.REALTIME_BODY_BATTERY:
+                self._parse_body_battery(data)
             elif service_code == GarminService.GFDI:
                 self._handle_gfdi_raw(data[1:])
             elif service_code in self._service_handlers:
@@ -190,6 +290,10 @@ class GarminClientBase:
 
     def _on_handshake_reset(self):
         """Override in subclass to register services after CLOSE_ALL."""
+        pass
+
+    def _on_service_registered(self, service_code: int, handle: int):
+        """Override in subclass to react when a service is registered."""
         pass
 
     def _parse_hr(self, data: bytes):
@@ -220,6 +324,36 @@ class GarminClientBase:
             if breaths > 0 and self.callbacks["respiration"]:
                 self.callbacks["respiration"](breaths)
 
+    def _parse_calories(self, data: bytes):
+        """Parse Calories (Service 8). Format: [total_cal (uint32 LE), active_cal (uint32 LE)]."""
+        if len(data) >= 9:
+            total = struct.unpack('<I', data[1:5])[0]
+            active = struct.unpack('<I', data[5:9])[0]
+            if self.callbacks["calories"]: self.callbacks["calories"](total, active)
+
+    def _parse_intensity(self, data: bytes):
+        """Parse Intensity Minutes (Service 10). Format: [moderate (uint16 LE), vigorous (uint16 LE)]."""
+        if len(data) >= 5:
+            mod = struct.unpack('<H', data[1:3])[0]
+            vig = struct.unpack('<H', data[3:5])[0]
+            if self.callbacks["intensity"]: self.callbacks["intensity"](mod, vig)
+
+    def _parse_stress(self, data: bytes):
+        """Parse Stress Level (Service 13). Format: [level (int8)]."""
+        if len(data) >= 2:
+            level = struct.unpack('<b', bytes([data[1]]))[0]
+            if self.callbacks["stress"]: self.callbacks["stress"](level)
+
+    def _parse_accel(self, data: bytes):
+        """Parse Accelerometer (Service 16). Raw sample data."""
+        if self.callbacks["accel"]: self.callbacks["accel"](data[1:])
+
+    def _parse_body_battery(self, data: bytes):
+        """Parse Body Battery (Service 20). Format: [level (int8)]."""
+        if len(data) >= 2:
+            level = struct.unpack('<b', bytes([data[1]]))[0]
+            if self.callbacks["body_battery"]: self.callbacks["body_battery"](level)
+
     def _handle_gfdi_raw(self, payload: bytes):
         """Assembles COBS chunks and dispatches complete GFDI messages."""
         self.cobs.received_bytes(payload)
@@ -230,18 +364,23 @@ class GarminClientBase:
 
     def _handle_gfdi_msg(self, msg: bytes):
         if len(msg) < 4: return
-        
+
         message_type = struct.unpack('<H', msg[2:4])[0]
-        if message_type == 5043 and len(msg) >= 18:  # PROTOBUF_REQUEST
+
+        # Ack every incoming GFDI message (port of GenericStatusMessage(ACK))
+        ack_msg = GfdiMessageBuilder.build_status_ack(message_type)
+        asyncio.create_task(self.send_gfdi_message(ack_msg))
+
+        if message_type == GarminMessage.PROTOBUF_REQUEST and len(msg) >= 18:
             request_id = struct.unpack('<H', msg[4:6])[0]
             data_offset = struct.unpack('<I', msg[6:10])[0]
             total_len = struct.unpack('<I', msg[10:14])[0]
             proto_len = struct.unpack('<I', msg[14:18])[0]
-            
-            # Auto-ACK protobuf requests
-            ack_msg = GfdiMessageBuilder.build_protobuf_ack(request_id, data_offset)
-            asyncio.create_task(self.send_gfdi_message(ack_msg))
-            
+
+            # Override: use the richer protobuf-specific ACK instead of the simple one
+            rich_ack = GfdiMessageBuilder.build_protobuf_ack(request_id, data_offset)
+            asyncio.create_task(self.send_gfdi_message(rich_ack))
+
             if data_offset == 0 and total_len == proto_len:
                 try:
                     smart = gdi_smart_proto_pb2.Smart()
@@ -250,6 +389,18 @@ class GarminClientBase:
                         self.callbacks["protobuf"](request_id, smart)
                 except Exception as e:
                     log.error("Error parsing Protobuf: %s", e)
+
+        elif message_type == GarminMessage.CURRENT_TIME_REQUEST:
+            log.debug("Received Time Sync Request. Responding...")
+            time_msg = GfdiMessageBuilder.build_time_response()
+            asyncio.create_task(self.send_gfdi_message(time_msg))
+
+        elif message_type == GarminMessage.SYSTEM_EVENT and len(msg) >= 5:
+            event_type = msg[4]
+            event_value = msg[5] if len(msg) > 5 else 0
+            log.debug("Received SYSTEM_EVENT: type=%d value=%d", event_type, event_value)
+            if self.callbacks["system_event"]:
+                self.callbacks["system_event"](event_type, event_value)
 
     async def run_forever(self):
         """Simple keep-alive loop."""

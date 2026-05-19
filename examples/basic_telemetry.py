@@ -1,7 +1,7 @@
 import asyncio
 import logging
 
-from garmin_ble import GarminClient
+from garmin_ble import GarminClient, GarminService
 from garmin_ble.logging import configure
 
 def on_heart_rate(hr, resting_hr):
@@ -32,13 +32,20 @@ async def main():
     client.on("hrv", on_hrv)
     client.on("protobuf", on_protobuf)
 
-    # 3. Connect and run the sync loop
+    # 3. Connect
     success = await client.connect()
-    if success:
-        print("\nStarting live telemetry stream. Press Ctrl+C to exit.\n")
-        await client.start_sync_loop()
-    else:
-        print("Failed to start sync.")
+    if not success:
+        print("Failed to connect.")
+        return
+
+    # 4. Register the telemetry services we want (not auto-registered)
+    for svc in (GarminService.REALTIME_HR, GarminService.REALTIME_STEPS,
+                GarminService.REALTIME_HRV):
+        await client.register_and_start_service(svc)
+
+    # 5. Run the sync loop
+    print("\nStarting live telemetry stream. Press Ctrl+C to exit.\n")
+    await client.start_sync_loop()
 
 if __name__ == "__main__":
     try:

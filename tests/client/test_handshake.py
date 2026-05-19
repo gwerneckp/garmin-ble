@@ -41,11 +41,12 @@ class TestHandshake:
         payload = write_calls[-1][0][1]
         assert payload[1] == 5  # RequestType.CLOSE_ALL_REQ
 
-    async def test_close_all_resp_triggers_registrations(self, mock_bleak_scanner, mock_bleak_client, mocker):
-        """We are testing if: CLOSE_ALL_RESP triggers REGISTER_ML_REQ for each service.
+    async def test_close_all_resp_triggers_gfdi_registration(self, mock_bleak_scanner, mock_bleak_client, mocker):
+        """We are testing if: CLOSE_ALL_RESP triggers REGISTER_ML_REQ only for GFDI.
 
-        After receiving CLOSE_ALL_RESP (type 6) on the control handle, the client must
-        send REGISTER_ML_REQ for GFDI, HR, steps, HRV, SpO2, and respiration.
+        After receiving CLOSE_ALL_RESP (type 6) on the control handle, the client
+        must send REGISTER_ML_REQ only for GFDI (service code 1). All other
+        services must be registered explicitly by the user.
         """
         mocker.patch("garmin_ble.client.base.BleakClient", return_value=mock_bleak_client)
         from tests.conftest import make_mock_services_with_rx_tx
@@ -60,19 +61,20 @@ class TestHandshake:
         await client._notify_handler(None, close_all_resp)
         await asyncio.sleep(0.01)  # let async tasks flush
 
-        expected_codes = [
-            GarminService.GFDI, GarminService.REALTIME_HR,
-            GarminService.REALTIME_STEPS, GarminService.REALTIME_HRV,
-            GarminService.REALTIME_SPO2, GarminService.REALTIME_RESPIRATION,
-        ]
-        written_codes = []
+        registration_codes = []
         for c in mock_bleak_client.write_gatt_char.call_args_list:
             payload = c[0][1]
-            if len(payload) >= 13:
+            # REGISTER_ML_REQ has request_type=0 at byte 1 and is >= 13 bytes
+            if len(payload) >= 13 and payload[1] == 0:
                 code = struct.unpack('<h', payload[10:12])[0]
-                written_codes.append(code)
-        for svc in expected_codes:
-            assert svc in written_codes, f"Missing registration for service {svc}"
+                registration_codes.append(code)
+
+        # Only GFDI should be registered automatically
+        assert len(registration_codes) == 1, \
+            f"Expected 1 registration, got {len(registration_codes)}: {registration_codes}"
+        assert GarminService.GFDI in registration_codes, f"GFDI not registered"
+        assert GarminService.REALTIME_HR not in registration_codes
+        assert GarminService.REALTIME_STEPS not in registration_codes
 
     async def test_register_ml_resp_stores_handle(self, mock_bleak_scanner, mock_bleak_client, mocker):
         """We are testing if: REGISTER_ML_RESP stores the handle-to-service mapping.
