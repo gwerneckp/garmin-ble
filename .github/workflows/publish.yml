@@ -1,13 +1,99 @@
 name: Publish to PyPI
 
 on:
+  push:
+    branches: [main]
+    paths:
+      - 'pyproject.toml'
   release:
     types: [published]
+  workflow_dispatch:
+    inputs:
+      force_publish:
+        description: 'Publish even if version tag already exists'
+        type: boolean
+        default: true
+
+permissions:
+  contents: write
+  id-token: write
 
 jobs:
-  build:
-    name: Build distribution 📦
+  check-version:
+    name: Detect Version & Need for Release
     runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      should_release: ${{ steps.version.outputs.should_release }}
+      should_publish: ${{ steps.version.outputs.should_publish }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      
+      - name: Determine Actions
+        id: version
+        run: |
+          VERSION=$(grep -m 1 'version = ' pyproject.toml | cut -d '"' -f 2)
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          
+          TAG_EXISTS=$(git rev-parse "v$VERSION" >/dev/null 2>&1 && echo "true" || echo "false")
+          IS_RERUN=${{ github.run_attempt > 1 && 'true' || 'false' }}
+          
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            echo "Manual trigger. Publishing $VERSION."
+            echo "should_release=false" >> $GITHUB_OUTPUT
+            echo "should_publish=true" >> $GITHUB_OUTPUT
+          elif [[ "${{ github.event_name }}" == "release" ]]; then
+            echo "Release event. Publishing."
+            echo "should_release=false" >> $GITHUB_OUTPUT
+            echo "should_publish=true" >> $GITHUB_OUTPUT
+          elif [[ "$TAG_EXISTS" == "false" ]]; then
+            echo "New version $VERSION. Will release and publish."
+            echo "should_release=true" >> $GITHUB_OUTPUT
+            echo "should_publish=true" >> $GITHUB_OUTPUT
+          elif [[ "$IS_RERUN" == "true" ]]; then
+            echo "Re-run detected for $VERSION. Allowing re-publish."
+            echo "should_release=false" >> $GITHUB_OUTPUT
+            echo "should_publish=true" >> $GITHUB_OUTPUT
+          else
+            echo "Version $VERSION already tagged. Nothing to do for push."
+            echo "should_release=false" >> $GITHUB_OUTPUT
+            echo "should_publish=false" >> $GITHUB_OUTPUT
+          fi
+
+  create-release:
+    name: Create GitHub Release
+    needs: check-version
+    if: needs.check-version.outputs.should_release == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ needs.check-version.outputs.version }}
+          name: v${{ needs.check-version.outputs.version }}
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  build-and-publish:
+    name: Build & Publish 📦
+    needs: [check-version, create-release]
+    # Run if should_publish is true, and either create-release succeeded OR was skipped
+    if: |
+      always() &&
+      needs.check-version.outputs.should_publish == 'true' &&
+      (needs.create-release.result == 'success' || needs.create-release.result == 'skipped')
+    runs-on: ubuntu-latest
+    environment:
+      name: pypi
+      url: https://pypi.org/p/garmin_ble
+    permissions:
+      id-token: write
     steps:
       - uses: actions/checkout@v4
       - name: Set up Python
@@ -16,30 +102,7 @@ jobs:
           python-version: "3.x"
       - name: Install pypa/build
         run: python -m pip install build --user
-      - name: Build a binary wheel and a source tarball
+      - name: Build distribution 📦
         run: python -m build
-      - name: Store the distribution packages
-        uses: actions/upload-artifact@v4
-        with:
-          name: python-package-distributions
-          path: dist/
-
-  publish-to-pypi:
-    name: Publish Python 📦 to PyPI
-    needs:
-      - build
-    runs-on: ubuntu-latest
-    # Specifies that this job requires the "pypi" environment
-    environment:
-      name: pypi
-      url: https://pypi.org/p/garmin_ble
-    permissions:
-      id-token: write  # IMPORTANT: mandatory for PyPI trusted publishing
-    steps:
-      - name: Download all the dists
-        uses: actions/download-artifact@v4
-        with:
-          name: python-package-distributions
-          path: dist/
       - name: Publish distribution 📦 to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
