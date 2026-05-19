@@ -1,6 +1,6 @@
 """Tests for real-time telemetry data parsing from Garmin watches.
 
-Each sensor type (HR, steps, HRV, SpO2, respiration) has a dedicated
+Each sensor type (HR, steps, HRV, SpO2, respiration, accelerometer) has a dedicated
 MLR handle assigned during the handshake.  Telemetry arrives as small
 MLR-framed packets with sensor-specific binary payloads.
 """
@@ -37,6 +37,7 @@ async def client_with_handles(connected_client):
         0x04: GarminService.REALTIME_HRV,
         0x05: GarminService.REALTIME_SPO2,
         0x06: GarminService.REALTIME_RESPIRATION,
+        0x07: GarminService.REALTIME_ACCELEROMETER,
     }
     return client, notify_handler
 
@@ -168,3 +169,47 @@ class TestTelemetryParsing:
         assert hrv_res == [720]
         assert spo2_res == [97]
         assert resp_res == [16]
+
+    async def test_accelerometer(self, client_with_handles):
+        """We are testing if: accelerometer packets are parsed into structured dicts.
+
+        Uses real captured data from a Garmin watch. Each 16-byte packet
+        (after the service header) decodes to 10× 12-bit values:
+          3 XYZ samples + 1 timestamp.
+        """
+        client, notify = client_with_handles
+        results = []
+        client.on("accel", lambda p: results.append(p))
+
+        # Real captured packets (raw BLE, including the MLR header byte)
+        packets = [
+            bytes([0x80 | (0x07 << 4)]) + bytearray(b'Rl\xaa\xaf\x02\x14\xcf\xfa- \xf1\xb2/\x02\x0e\x1f'),
+            bytes([0x80 | (0x07 << 4)]) + bytearray(b'\xc5l\xb1\x8f\x02\x17?\xfb"\xa0\xf1\xb1\xdf\x02\x17\x1f'),
+            bytes([0x80 | (0x07 << 4)]) + bytearray(b'9m\xb1\xdf\x01\t\x8f\xfa-\xe0\xf0\xa9\xcf\x02\x19\x1f'),
+        ]
+
+        for pkt in packets:
+            await notify(None, pkt)
+
+        assert len(results) == 3
+
+        # --- Packet 1: ts=3154ms ---
+        p0 = results[0]
+        assert p0["timestamp_ms"] == 3154
+        assert p0["samples"][0] == (-1370, 687, 320)
+        assert p0["samples"][1] == (-1329, 735, 288)
+        assert p0["samples"][2] == (-1233, 559, 224)
+
+        # --- Packet 2: ts=3269ms ---
+        p1 = results[1]
+        assert p1["timestamp_ms"] == 3269
+        assert p1["samples"][0] == (-1258, 655, 368)
+        assert p1["samples"][1] == (-1217, 559, 416)
+        assert p1["samples"][2] == (-1249, 735, 368)
+
+        # --- Packet 3: ts=3385ms ---
+        p2 = results[2]
+        assert p2["timestamp_ms"] == 3385
+        assert p2["samples"][0] == (-1258, 479, 144)
+        assert p2["samples"][1] == (-1393, 735, 224)
+        assert p2["samples"][2] == (-1377, 719, 400)

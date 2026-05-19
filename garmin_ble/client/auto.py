@@ -26,7 +26,7 @@ class GarminClient(GarminClientBase):
         self._disconnect_event = asyncio.Event()
         self.on("disconnected", lambda: self._disconnect_event.set())
 
-    async def connect(self, address: Optional[str] = None, timeout: float = 10.0) -> bool:
+    async def connect(self, address: Optional[str] = None, timeout: float = 30.0) -> bool:
         """Scan for a Garmin watch and connect, or connect directly to *address*."""
         self._disconnect_event.clear()
         if address is None:
