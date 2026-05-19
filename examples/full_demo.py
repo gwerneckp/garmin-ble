@@ -59,7 +59,7 @@ async def main():
         # data streaming. Call register_and_start_service() for each
         # one you want:
         print("  → Registering & starting accelerometer manually ...")
-        await client.register_and_start_service(GarminService.REALTIME_ACCELEROMETER)
+        # await client.register_and_start_service(GarminService.REALTIME_ACCELEROMETER)
 
         print("  → Registering & starting calories manually ...")
         await client.register_and_start_service(GarminService.REALTIME_CALORIES)

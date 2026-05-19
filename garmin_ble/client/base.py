@@ -345,65 +345,8 @@ class GarminClientBase:
             if self.callbacks["stress"]: self.callbacks["stress"](level)
 
     def _parse_accel(self, data: bytes):
-        """Parse Accelerometer (Service 16).
-
-        Each packet is 16 bytes containing bit-packed 12-bit values:
-
-          Byte 0-14: 10 values × 12 bits = 120 bits (15 bytes)
-          Byte 15:   Status/padding (always 0x1F)
-
-        Unpacking (little-endian 12-bit):
-          For each 3-byte chunk (B[0..2]):
-            V_even = B[0] | ((B[1] & 0x0F) << 8)
-            V_odd  = (B[1] >> 4) | (B[2] << 4)
-
-        Field mapping:
-          V₀: Timestamp (12-bit unsigned, millisecond offset, wraps at 4096ms)
-          V₁, V₂, V₃:  Sample 1 X, Y, Z  (12-bit signed)
-          V₄, V₅, V₆:  Sample 2 X, Y, Z
-          V₇, V₈, V₉:  Sample 3 X, Y, Z
-
-        Signed conversion (2's complement):
-          signed = raw if raw < 2048 else raw - 4096
-
-        Gravity scale: 1024 LSB = 1g
-
-        The callback receives a dict:
-          {"timestamp_ms": int, "samples": [(x, y, z), (x, y, z), (x, y, z)]}
-        where x, y, z are signed raw counts.
-        """
-        if not self.callbacks["accel"]:
-            return
-
-        payload = data[1:]  # strip service header byte
-        if len(payload) < 16:
-            return
-
-        # Unpack 10 × 12-bit little-endian values from the first 15 bytes
-        values = []
-        for i in range(5):
-            b0 = payload[3 * i]
-            b1 = payload[3 * i + 1]
-            b2 = payload[3 * i + 2]
-            v_even = b0 | ((b1 & 0x0F) << 8)
-            v_odd = (b1 >> 4) | (b2 << 4)
-            values.append(v_even)
-            values.append(v_odd)
-
-        def to_signed(v: int) -> int:
-            return v if v < 2048 else v - 4096
-
-        timestamp_ms = values[0]
-        samples = (
-            (to_signed(values[1]), to_signed(values[2]), to_signed(values[3])),
-            (to_signed(values[4]), to_signed(values[5]), to_signed(values[6])),
-            (to_signed(values[7]), to_signed(values[8]), to_signed(values[9])),
-        )
-
-        self.callbacks["accel"]({
-            "timestamp_ms": timestamp_ms,
-            "samples": samples,
-        })
+        """Parse Accelerometer (Service 16). Raw sample data."""
+        if self.callbacks["accel"]: self.callbacks["accel"](data[1:])
 
     def _parse_body_battery(self, data: bytes):
         """Parse Body Battery (Service 20). Format: [level (int8)]."""
