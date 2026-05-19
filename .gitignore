@@ -154,3 +154,8 @@ cython_debug/
 
 # Mac OS folder attributes
 .DS_Store
+
+docs/
+legacy/
+AGENTS.md
+*.calibration
