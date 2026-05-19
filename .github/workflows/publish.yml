@@ -3,6 +3,8 @@ name: Publish to PyPI
 on:
   release:
     types: [published]
+  workflow_dispatch:
+  workflow_call:
 
 jobs:
   build:
@@ -26,15 +28,13 @@ jobs:
 
   publish-to-pypi:
     name: Publish Python 📦 to PyPI
-    needs:
-      - build
+    needs: build
     runs-on: ubuntu-latest
-    # Specifies that this job requires the "pypi" environment
     environment:
       name: pypi
       url: https://pypi.org/p/garmin_ble
     permissions:
-      id-token: write  # IMPORTANT: mandatory for PyPI trusted publishing
+      id-token: write  # Mandatory for PyPI trusted publishing
     steps:
       - name: Download all the dists
         uses: actions/download-artifact@v4

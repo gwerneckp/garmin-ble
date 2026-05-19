@@ -1,0 +1,53 @@
+name: Auto Release
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'pyproject.toml'
+
+permissions:
+  contents: write
+  id-token: write
+
+jobs:
+  check-and-release:
+    name: Check version bump & Create Release
+    runs-on: ubuntu-latest
+    outputs:
+      is_bump: ${{ steps.check.outputs.is_bump }}
+      version: ${{ steps.check.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      
+      - name: Check version
+        id: check
+        run: |
+          VERSION=$(grep -m 1 'version = ' pyproject.toml | cut -d '"' -f 2)
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          
+          if git rev-parse "v$VERSION" >/dev/null 2>&1; then
+            echo "Version $VERSION already exists as a tag. Skipping."
+            echo "is_bump=false" >> $GITHUB_OUTPUT
+          else
+            echo "New version $VERSION detected."
+            echo "is_bump=true" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Create Release
+        if: steps.check.outputs.is_bump == 'true'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ steps.check.outputs.version }}
+          name: v${{ steps.check.outputs.version }}
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  trigger-publish:
+    needs: check-and-release
+    if: needs.check-and-release.outputs.is_bump == 'true'
+    uses: ./.github/workflows/publish.yml
+    secrets: inherit
