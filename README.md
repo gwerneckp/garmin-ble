@@ -90,6 +90,17 @@ map to release versions:
 
 ---
 
+## Design Philosophy
+
+`garmin-ble` is a **wire-protocol library**, not a feature-complete application. It knows how to encode, send, decode, and respond to Garmin's BLE protobufs — and nothing more.
+
+This means:
+- The library does **not** fetch weather from OpenWeatherMap, sync calendars via CalDAV, or play sounds when the watch says "find my phone".
+- Instead it provides the building blocks — protobuf encode/decode, callbacks for incoming messages, and transport helpers.
+- **Callers** wire up the OS integration, external APIs, and user-facing features.
+
+This keeps the library focused, testable, and free of the endless feature creep that plagues integration-heavy projects.
+
 ## Project Mission
 
 **Own your data.** Garmin devices capture a wealth of physiological data, but Garmin Connect locks it behind a cloud service. This library gives you direct, programmatic access to your watch over BLE — no internet required.
