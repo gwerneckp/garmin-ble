@@ -30,7 +30,7 @@ def mock_bleak_scanner(mocker):
     mock_adv.local_name = "fenix 7"
 
     mocker.patch(
-        "garmin_ble.client.BleakScanner.discover",
+        "garmin_ble.client.auto.BleakScanner.discover",
         new=AsyncMock(return_value={mock_device.address: (mock_device, mock_adv)})
     )
     return mock_device

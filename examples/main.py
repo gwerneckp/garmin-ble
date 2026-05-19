@@ -1,5 +1,8 @@
 import asyncio
+import logging
+
 from garmin_ble import GarminClient
+from garmin_ble.logging import configure
 
 def on_heart_rate(hr, resting_hr):
     print(f"❤️  HR: {hr} BPM (Resting: {resting_hr} BPM)")
@@ -17,7 +20,10 @@ def on_protobuf(request_id, smart_message):
     print("-" * 40)
 
 async def main():
-    # 1. Initialize the client
+    # Set up library logging (stderr by default; INFO level)
+    configure(level=logging.INFO)
+
+    # 1. Initialize the client (auto-discovers the watch via BLE)
     client = GarminClient()
 
     # 2. Register our custom callback functions

@@ -8,20 +8,20 @@ import struct
 import pytest
 from unittest.mock import AsyncMock, MagicMock, PropertyMock
 
-from garmin_ble.client import GarminClient
+from garmin_ble.client import GarminClientBase
 from garmin_ble.constants import GarminService
 
 
 @pytest.fixture
 async def connected_client(mock_bleak_scanner, mock_bleak_client, mocker):
-    """Return a GarminClient that has completed the connect() handshake."""
-    mocker.patch("garmin_ble.client.BleakClient", return_value=mock_bleak_client)
+    """Return a GarminClientBase that has completed the connect() handshake."""
+    mocker.patch("garmin_ble.client.base.BleakClient", return_value=mock_bleak_client)
     from tests.conftest import make_mock_services_with_rx_tx
     mock_bleak_client.services = make_mock_services_with_rx_tx()
     mock_bleak_client.write_gatt_char = AsyncMock()
 
-    client = GarminClient()
-    await client.connect()
+    client = GarminClientBase()
+    await client.connect("AA:BB:CC:DD:EE:FF")
     notify_handler = mock_bleak_client.start_notify.call_args[0][1]
     return client, notify_handler
 

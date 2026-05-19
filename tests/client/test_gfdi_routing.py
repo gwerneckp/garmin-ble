@@ -17,13 +17,13 @@ from garmin_ble.constants import GarminService
 @pytest.fixture
 async def connected_client(mock_bleak_scanner, mock_bleak_client, mocker):
     """Return a GarminClient that has completed the connect() handshake."""
-    mocker.patch("garmin_ble.client.BleakClient", return_value=mock_bleak_client)
+    mocker.patch("garmin_ble.client.base.BleakClient", return_value=mock_bleak_client)
     from tests.conftest import make_mock_services_with_rx_tx
     mock_bleak_client.services = make_mock_services_with_rx_tx()
     mock_bleak_client.write_gatt_char = AsyncMock()
 
     client = GarminClient()
-    await client.connect()
+    await client.connect("AA:BB:CC:DD:EE:FF")
     notify_handler = mock_bleak_client.start_notify.call_args[0][1]
     return client, notify_handler
 
@@ -54,7 +54,7 @@ class TestGfdiProtobuf:
         client, notify = gfdi_client
         smart_msg = mocker.MagicMock()
         mocker.patch(
-            "garmin_ble.client.gdi_smart_proto_pb2.Smart",
+            "garmin_ble.client.base.gdi_smart_proto_pb2.Smart",
             return_value=smart_msg,
         )
         mock_bleak_client.write_gatt_char.reset_mock()
@@ -88,7 +88,7 @@ class TestGfdiProtobuf:
 
         smart_msg = mocker.MagicMock()
         mocker.patch(
-            "garmin_ble.client.gdi_smart_proto_pb2.Smart",
+            "garmin_ble.client.base.gdi_smart_proto_pb2.Smart",
             return_value=smart_msg,
         )
 

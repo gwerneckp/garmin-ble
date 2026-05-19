@@ -28,12 +28,12 @@ class TestHandshake:
         written to the TX characteristic, which resets all prior MLR assignments
         on the watch.
         """
-        mocker.patch("garmin_ble.client.BleakClient", return_value=mock_bleak_client)
+        mocker.patch("garmin_ble.client.base.BleakClient", return_value=mock_bleak_client)
         from tests.conftest import make_mock_services_with_rx_tx
         mock_bleak_client.services = make_mock_services_with_rx_tx()
 
         client = GarminClient()
-        await client.connect()
+        await client.connect("AA:BB:CC:DD:EE:FF")
 
         # The last write_gatt_char call is CLOSE_ALL_REQ
         write_calls = mock_bleak_client.write_gatt_char.call_args_list
@@ -47,13 +47,13 @@ class TestHandshake:
         After receiving CLOSE_ALL_RESP (type 6) on the control handle, the client must
         send REGISTER_ML_REQ for GFDI, HR, steps, HRV, SpO2, and respiration.
         """
-        mocker.patch("garmin_ble.client.BleakClient", return_value=mock_bleak_client)
+        mocker.patch("garmin_ble.client.base.BleakClient", return_value=mock_bleak_client)
         from tests.conftest import make_mock_services_with_rx_tx
         mock_bleak_client.services = make_mock_services_with_rx_tx()
         mock_bleak_client.write_gatt_char.reset_mock()
 
         client = GarminClient()
-        await client.connect()
+        await client.connect("AA:BB:CC:DD:EE:FF")
 
         # Simulate CLOSE_ALL_RESP from the watch
         close_all_resp = bytes([0x00, 0x06])
@@ -81,12 +81,12 @@ class TestHandshake:
         assigned_handle=3 (for GFDI, service code=1), the client's service_handles
         dict must map handle 0x03 to GarminService.GFDI.
         """
-        mocker.patch("garmin_ble.client.BleakClient", return_value=mock_bleak_client)
+        mocker.patch("garmin_ble.client.base.BleakClient", return_value=mock_bleak_client)
         from tests.conftest import make_mock_services_with_rx_tx
         mock_bleak_client.services = make_mock_services_with_rx_tx()
 
         client = GarminClient()
-        await client.connect()
+        await client.connect("AA:BB:CC:DD:EE:FF")
 
         # Simulate REGISTER_ML_RESP: service_code=0x0001 (GFDI), status=0, handle=0x03
         resp = bytes([
@@ -106,12 +106,12 @@ class TestHandshake:
         If the watch replies with status != 0, the client must NOT store the handle
         mapping (no exception raised, no entry created).
         """
-        mocker.patch("garmin_ble.client.BleakClient", return_value=mock_bleak_client)
+        mocker.patch("garmin_ble.client.base.BleakClient", return_value=mock_bleak_client)
         from tests.conftest import make_mock_services_with_rx_tx
         mock_bleak_client.services = make_mock_services_with_rx_tx()
 
         client = GarminClient()
-        await client.connect()
+        await client.connect("AA:BB:CC:DD:EE:FF")
 
         # REGISTER_ML_RESP with status=1 (failure)
         resp = bytes([

@@ -5,6 +5,8 @@ disconnect path.  These tests verify correct resource cleanup and
 event routing behaviour.
 """
 import asyncio
+import logging
+
 import pytest
 from unittest.mock import AsyncMock
 
@@ -19,17 +21,16 @@ class TestClientLifecycle:
     watch and cancels cleanly on disconnect.
     """
 
-    async def test_on_unknown_event(self, capsys):
-        """We are testing if: registering an unknown event name prints a warning.
+    async def test_on_unknown_event(self, caplog):
+        """We are testing if: registering an unknown event name logs a warning.
 
         The client should not crash, but it should notify the user that the
         event name is not recognised so they can catch typos early.
         """
         client = GarminClient()
-        client.on("nonexistent", lambda: None)
-        captured = capsys.readouterr()
-        assert "Warning" in captured.out
-        assert "nonexistent" in captured.out
+        with caplog.at_level(logging.WARNING):
+            client.on("nonexistent", lambda: None)
+        assert "Unknown event type 'nonexistent'" in caplog.text
 
     async def test_disconnect_on_start_sync_loop_cancel(self, mock_bleak_client, mocker):
         """We are testing if: cancelling the sync loop disconnects the BLE client.
@@ -38,9 +39,9 @@ class TestClientLifecycle:
         client must call disconnect on the underlying BleakClient to release
         the BLE connection cleanly.
         """
-        mocker.patch("garmin_ble.client.BleakClient", return_value=mock_bleak_client)
+        mocker.patch("garmin_ble.client.base.BleakClient", return_value=mock_bleak_client)
         mocker.patch(
-            "garmin_ble.client.BleakScanner.discover",
+            "garmin_ble.client.auto.BleakScanner.discover",
             new=AsyncMock(return_value={}),
         )
 
