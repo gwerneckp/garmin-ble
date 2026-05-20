@@ -1,13 +1,18 @@
+import asyncio
 import math
 import pytest
 from garmin_ble.client.base import GarminClientBase
 
 def get_parsed_samples(packet_hex: str):
     """Helper to parse a hex packet and return the samples list."""
+    from garmin_ble.constants import GarminService
     client = GarminClientBase()
     received = []
     client.on("accel", lambda s: received.extend(s))
-    client._parse_accel(bytes.fromhex(packet_hex))
+    raw = bytes.fromhex(packet_hex)
+    handle = raw[0] & 0x7F
+    client.service_handles[handle] = GarminService.REALTIME_ACCELEROMETER
+    asyncio.run(client._notify_handler(None, raw))
     return received
 
 def test_parse_accel_desk_up():

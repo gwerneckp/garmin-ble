@@ -65,7 +65,7 @@ class TestCrcGfdiStructure:
     def test_gfdi_ack_crc(self):
         """Recreate the exact CRC from GfdiMessageBuilder.build_protobuf_ack."""
         from garmin_ble.gfdi import GfdiMessageBuilder
-        msg = GfdiMessageBuilder.build_protobuf_ack(request_id=0, data_offset=0)
+        msg = GfdiMessageBuilder.build_protobuf_ack(ref_msg_type=5043, request_id=0, data_offset=0)
         # Last 2 bytes are CRC little-endian
         crc_from_msg = struct.unpack('<H', msg[-2:])[0]
         recomputed = compute_crc(msg[:-2])
