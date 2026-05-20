@@ -7,6 +7,8 @@ from ..constants import GARMIN_BASE_UUID, CLIENT_ID, GarminService, RequestType,
 from ..cobs import CobsCoDec
 from ..gfdi import GfdiMessageBuilder
 from ..protobuf import gdi_smart_proto_pb2
+from ..parsers.protobuf_handler import ProtobufHandler
+from ..parsers.telemetry import TelemetryDispatcher
 from ..logging import get_logger
 
 log = get_logger(__name__)
@@ -49,6 +51,9 @@ class GarminClientBase:
         self.cobs = CobsCoDec()
         self.max_write_size = 20  # Conservative default
         self._is_connected = False
+        
+        self.protobuf_handler = ProtobufHandler()
+        self._telemetry_dispatcher = TelemetryDispatcher(self.callbacks)
 
         # Heartbeat (periodic time-sync) task
         self._heartbeat_task: Optional[asyncio.Task] = None
@@ -187,6 +192,7 @@ class GarminClientBase:
             
         encoded = CobsCoDec.encode(message)
         pos = 0
+        log.debug("TX GFDI (type %d) encoded frame (%d bytes): %s", message[2] if len(message) > 2 else 0, len(encoded), encoded.hex())
         while pos < len(encoded):
             chunk = encoded[pos : pos + self.max_write_size - 1]
             payload = bytes([gfdi_handle]) + chunk
@@ -262,31 +268,13 @@ class GarminClientBase:
                     
         elif handle in self.service_handles:
             service_code = self.service_handles[handle]
-            
-            if service_code == GarminService.REALTIME_HR:
-                self._parse_hr(data)
-            elif service_code == GarminService.REALTIME_STEPS:
-                self._parse_steps(data)
-            elif service_code == GarminService.REALTIME_HRV:
-                self._parse_hrv(data)
-            elif service_code == GarminService.REALTIME_SPO2:
-                self._parse_spo2(data)
-            elif service_code == GarminService.REALTIME_RESPIRATION:
-                self._parse_respiration(data)
-            elif service_code == GarminService.REALTIME_CALORIES:
-                self._parse_calories(data)
-            elif service_code == GarminService.REALTIME_INTENSITY:
-                self._parse_intensity(data)
-            elif service_code == GarminService.REALTIME_STRESS:
-                self._parse_stress(data)
-            elif service_code == GarminService.REALTIME_ACCELEROMETER:
-                self._parse_accel(data)
-            elif service_code == GarminService.REALTIME_BODY_BATTERY:
-                self._parse_body_battery(data)
-            elif service_code == GarminService.GFDI:
+
+            if service_code == GarminService.GFDI:
                 self._handle_gfdi_raw(data[1:])
             elif service_code in self._service_handlers:
                 self._service_handlers[service_code](data)
+            else:
+                self._telemetry_dispatcher.dispatch(service_code, data)
 
     def _on_handshake_reset(self):
         """Override in subclass to register services after CLOSE_ALL."""
@@ -296,116 +284,33 @@ class GarminClientBase:
         """Override in subclass to react when a service is registered."""
         pass
 
-    def _parse_hr(self, data: bytes):
-        if len(data) >= 4:
-            hr, rest = data[2], data[3]
-            if self.callbacks["hr"]: self.callbacks["hr"](hr, rest)
-
-    def _parse_steps(self, data: bytes):
-        if len(data) >= 9:
-            steps = struct.unpack('<I', data[1:5])[0]
-            goal = struct.unpack('<I', data[5:9])[0]
-            if self.callbacks["steps"]: self.callbacks["steps"](steps, goal)
-
-    def _parse_hrv(self, data: bytes):
-        if len(data) >= 3:
-            rr = struct.unpack('<H', data[1:3])[0]
-            if self.callbacks["hrv"]: self.callbacks["hrv"](rr)
-
-    def _parse_spo2(self, data: bytes):
-        if len(data) >= 2:
-            spo2 = data[1]
-            if spo2 != 255 and self.callbacks["spo2"]:
-                self.callbacks["spo2"](spo2)
-
-    def _parse_respiration(self, data: bytes):
-        if len(data) >= 2:
-            breaths = struct.unpack('<b', bytes([data[1]]))[0]
-            if breaths > 0 and self.callbacks["respiration"]:
-                self.callbacks["respiration"](breaths)
-
-    def _parse_calories(self, data: bytes):
-        """Parse Calories (Service 8). Format: [total_cal (uint32 LE), active_cal (uint32 LE)]."""
-        if len(data) >= 9:
-            total = struct.unpack('<I', data[1:5])[0]
-            active = struct.unpack('<I', data[5:9])[0]
-            if self.callbacks["calories"]: self.callbacks["calories"](total, active)
-
-    def _parse_intensity(self, data: bytes):
-        """Parse Intensity Minutes (Service 10). Format: [moderate (uint16 LE), vigorous (uint16 LE)]."""
-        if len(data) >= 5:
-            mod = struct.unpack('<H', data[1:3])[0]
-            vig = struct.unpack('<H', data[3:5])[0]
-            if self.callbacks["intensity"]: self.callbacks["intensity"](mod, vig)
-
-    def _parse_stress(self, data: bytes):
-        """Parse Stress Level (Service 13). Format: [level (int8)]."""
-        if len(data) >= 2:
-            level = struct.unpack('<b', bytes([data[1]]))[0]
-            if self.callbacks["stress"]: self.callbacks["stress"](level)
-
-    def _parse_accel(self, data: bytes):
-        """Parse Accelerometer (Service 16). Returns list of (X, Y, Z) float samples (in g)."""
-        if not self.callbacks["accel"] or len(data) < 17:
-            return
-
-        # data[0] is the service header (0x10)
-        # data[1:3] is the 16-bit timestamp (ignored)
-        payload = data[3:17]
-
-        vals = []
-        for i in range(4):
-            b0, b1, b2 = payload[3*i], payload[3*i+1], payload[3*i+2]
-            v_even = b0 | ((b1 & 0x0F) << 8)
-            v_odd  = (b1 >> 4) | (b2 << 4)
-            vals.extend([v_even, v_odd])
-        
-        b0, b1 = payload[12], payload[13]
-        v8 = b0 | ((b1 & 0x0F) << 8)
-        vals.append(v8)
-
-        # 12-bit signed -> float (1g = 256 LSB)
-        g_vals = [(v if v < 2048 else v - 4096) / 256.0 for v in vals]
-
-        samples = [
-            (g_vals[0], g_vals[1], g_vals[2]),
-            (g_vals[3], g_vals[4], g_vals[5]),
-            (g_vals[6], g_vals[7], g_vals[8]),
-        ]
-        
-        self.callbacks["accel"](samples)
-
-    def _parse_body_battery(self, data: bytes):
-        """Parse Body Battery (Service 20). Format: [level (int8)]."""
-        if len(data) >= 2:
-            level = struct.unpack('<b', bytes([data[1]]))[0]
-            if self.callbacks["body_battery"]: self.callbacks["body_battery"](level)
-
     def _handle_gfdi_raw(self, payload: bytes):
         """Assembles COBS chunks and dispatches complete GFDI messages."""
         self.cobs.received_bytes(payload)
         while True:
             msg = self.cobs.retrieve_message()
             if not msg: break
+            log.debug("GFDI decoded frame (%d bytes): %s", len(msg), msg.hex())
             self._handle_gfdi_msg(msg)
 
     def _handle_gfdi_msg(self, msg: bytes):
         if len(msg) < 4: return
 
         message_type = struct.unpack('<H', msg[2:4])[0]
+        log.debug("Parsed GFDI message type: %d", message_type)
 
         # Ack every incoming GFDI message (port of GenericStatusMessage(ACK))
         ack_msg = GfdiMessageBuilder.build_status_ack(message_type)
         asyncio.create_task(self.send_gfdi_message(ack_msg))
 
-        if message_type == GarminMessage.PROTOBUF_REQUEST and len(msg) >= 18:
+        if message_type in (GarminMessage.PROTOBUF_REQUEST, GarminMessage.PROTOBUF_RESPONSE) and len(msg) >= 18:
             request_id = struct.unpack('<H', msg[4:6])[0]
             data_offset = struct.unpack('<I', msg[6:10])[0]
             total_len = struct.unpack('<I', msg[10:14])[0]
             proto_len = struct.unpack('<I', msg[14:18])[0]
 
             # Override: use the richer protobuf-specific ACK instead of the simple one
-            rich_ack = GfdiMessageBuilder.build_protobuf_ack(request_id, data_offset)
+            rich_ack = GfdiMessageBuilder.build_protobuf_ack(message_type, request_id, data_offset)
             asyncio.create_task(self.send_gfdi_message(rich_ack))
 
             if data_offset == 0 and total_len == proto_len:
@@ -414,6 +319,19 @@ class GarminClientBase:
                     smart.ParseFromString(msg[18:18+proto_len])
                     if self.callbacks["protobuf"]:
                         self.callbacks["protobuf"](request_id, smart)
+                        
+                    # Dispatch via the processor registry
+                    response_smart = self.protobuf_handler.handle_incoming(smart)
+                    if response_smart:
+                        response_bytes = response_smart.SerializeToString()
+                        response_gfdi = GfdiMessageBuilder.build_protobuf_response(
+                            request_id=request_id,
+                            data_offset=0,
+                            total_length=len(response_bytes),
+                            proto_bytes=response_bytes
+                        )
+                        asyncio.create_task(self.send_gfdi_message(response_gfdi))
+                        
                 except Exception as e:
                     log.error("Error parsing Protobuf: %s", e)
 
@@ -428,6 +346,18 @@ class GarminClientBase:
             log.debug("Received SYSTEM_EVENT: type=%d value=%d", event_type, event_value)
             if self.callbacks["system_event"]:
                 self.callbacks["system_event"](event_type, event_value)
+
+    async def send_protobuf(self, smart: gdi_smart_proto_pb2.Smart):
+        """Send an arbitrary protobuf Smart message request to the watch."""
+        request_id = self.protobuf_handler.next_request_id()
+        proto_bytes = smart.SerializeToString()
+        request_gfdi = GfdiMessageBuilder.build_protobuf_request(
+            request_id=request_id,
+            data_offset=0,
+            total_length=len(proto_bytes),
+            proto_bytes=proto_bytes
+        )
+        await self.send_gfdi_message(request_gfdi)
 
     async def run_forever(self):
         """Simple keep-alive loop."""

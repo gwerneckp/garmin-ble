@@ -32,7 +32,7 @@ Homepage = "https://github.com/gwerneckp/garmin-ble"
 Repository = "https://github.com/gwerneckp/garmin-ble"
 
 [tool.setuptools]
-packages = ["garmin_ble", "garmin_ble.protobuf"]
+packages = ["garmin_ble", "garmin_ble.client", "garmin_ble.protobuf"]
 
 [project.optional-dependencies]
 dev = [

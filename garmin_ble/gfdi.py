@@ -14,12 +14,12 @@ def _garmin_timestamp() -> int:
 def _build_frame(message_type: int, payload: bytes) -> bytes:
     """Wrap a payload in the GFDI frame: packet_size (H) + type (H) + payload + CRC16 (H).
 
-    packet_size includes the type (2) + payload + CRC (2), but NOT itself.
+    packet_size includes the size field (2) + type (2) + payload + CRC (2).
     """
-    packet_size = 2 + len(payload) + 2
-    buffer = struct.pack('<HH', packet_size, message_type) + payload
-    crc = compute_crc(buffer)
-    return buffer + struct.pack('<H', crc)
+    packet_size = 2 + 2 + len(payload) + 2
+    frame_body = struct.pack('<HH', packet_size, message_type) + payload
+    crc = compute_crc(frame_body)
+    return frame_body + struct.pack('<H', crc)
 
 
 class GfdiMessageBuilder:
@@ -38,15 +38,15 @@ class GfdiMessageBuilder:
         return _build_frame(5000, payload)
 
     @staticmethod
-    def build_protobuf_ack(request_id: int, data_offset: int) -> bytes:
+    def build_protobuf_ack(ref_msg_type: int, request_id: int, data_offset: int) -> bytes:
         """
         Builds a GFDI Status Message (Type 5000) specifically as an ACK for
-        a Protobuf Request (Type 5043).
+        a Protobuf Request or Response.
         """
         # Format: ref_msg_type (H), status (b),
         #         request_id (H), data_offset (I), chunk_status (b), status_code (b)
         payload = struct.pack('<HbHIbb',
-            5043,       # ref_msg_type (PROTOBUF_REQUEST)
+            ref_msg_type,
             0,          # status = ACK
             request_id,
             data_offset,
@@ -54,6 +54,18 @@ class GfdiMessageBuilder:
             0,          # protobuf_status_code = NO_ERROR
         )
         return _build_frame(5000, payload)
+
+    @staticmethod
+    def build_protobuf_response(request_id: int, data_offset: int, total_length: int, proto_bytes: bytes) -> bytes:
+        """Build a PROTOBUF_RESPONSE (5044) GFDI frame."""
+        payload = struct.pack('<HIIi', request_id, data_offset, total_length, len(proto_bytes)) + proto_bytes
+        return _build_frame(5044, payload)
+
+    @staticmethod
+    def build_protobuf_request(request_id: int, data_offset: int, total_length: int, proto_bytes: bytes) -> bytes:
+        """Build a PROTOBUF_REQUEST (5043) GFDI frame."""
+        payload = struct.pack('<HIIi', request_id, data_offset, total_length, len(proto_bytes)) + proto_bytes
+        return _build_frame(5043, payload)
 
     @staticmethod
     def build_time_response() -> bytes:
