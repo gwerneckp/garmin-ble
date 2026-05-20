@@ -21,6 +21,9 @@ class GarminClientBase:
     GFDI message routing, and telemetry parsing.
     """
 
+    # System event type constants
+    SYSTEM_EVENT_TIME_UPDATED = 16
+
     def __init__(self):
         self.client: Optional[BleakClient] = None
         self.device = None
@@ -154,7 +157,8 @@ class GarminClientBase:
         """
         self._heartbeat_interval = interval
         if self._heartbeat_task is None or self._heartbeat_task.done():
-            self._heartbeat_task = asyncio.create_task(self._heartbeat_loop())
+            # Send one immediately (like Java's onSetTime), then loop
+            self._heartbeat_task = asyncio.create_task(self._heartbeat_loop(immediate=True))
             log.debug("Heartbeat enabled (interval=%.1fs).", interval)
 
     async def disable_heartbeat(self):
@@ -167,17 +171,25 @@ class GarminClientBase:
                 pass
         self._heartbeat_task = None
 
-    async def _heartbeat_loop(self):
+    async def _send_time_update(self):
+        """Send a TIME_UPDATED system event (Java's onSetTime equivalent)."""
+        msg = GfdiMessageBuilder.build_system_event(
+            GarminClientBase.SYSTEM_EVENT_TIME_UPDATED, 0)
+        await self.send_gfdi_message(msg)
+        if self.callbacks["system_event"]:
+            self.callbacks["system_event"](GarminClientBase.SYSTEM_EVENT_TIME_UPDATED, 0)
+
+    async def _heartbeat_loop(self, immediate: bool = False):
         """Periodically send TIME_UPDATED to keep the connection alive."""
         try:
+            # Send one immediately on start (like Java's onSetTime)
+            if immediate:
+                await self._send_time_update()
             while self._is_connected:
                 await asyncio.sleep(self._heartbeat_interval)
                 if not self._is_connected:
                     break
-                msg = GfdiMessageBuilder.build_system_event(
-                    GarminClientBase.SYSTEM_EVENT_TIME_UPDATED, 0)
-                await self.send_gfdi_message(msg)
-                log.debug("Heartbeat: sent TIME_UPDATED.")
+                await self._send_time_update()
         except asyncio.CancelledError:
             pass
         except Exception as e:
@@ -339,6 +351,8 @@ class GarminClientBase:
             log.debug("Received Time Sync Request. Responding...")
             time_msg = GfdiMessageBuilder.build_time_response()
             asyncio.create_task(self.send_gfdi_message(time_msg))
+            if self.callbacks["system_event"]:
+                self.callbacks["system_event"](0, 0)  # synthetic: time sync detected
 
         elif message_type == GarminMessage.SYSTEM_EVENT and len(msg) >= 5:
             event_type = msg[4]

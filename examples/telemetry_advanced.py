@@ -54,18 +54,12 @@ async def main():
     if await client.connect():
         print("\n✅ Connected! Starting sync loop.\n")
 
-        # --- Manually start high-volume / user-choice services ---
-        # These are NOT registered automatically to avoid unwanted
-        # data streaming. Call register_and_start_service() for each
-        # one you want:
-        print("  → Registering & starting accelerometer manually ...")
-        # await client.register_and_start_service(GarminService.REALTIME_ACCELEROMETER)
-
-        print("  → Registering & starting calories manually ...")
+        await client.register_and_start_service(GarminService.REALTIME_HEART_RATE)
         await client.register_and_start_service(GarminService.REALTIME_CALORIES)
-
-        print("  → Registering & starting intensity manually ...")
         await client.register_and_start_service(GarminService.REALTIME_INTENSITY)
+        await client.register_and_start_service(GarminService.REALTIME_STRESS)
+        await client.register_and_start_service(GarminService.REALTIME_ACCELEROMETER)
+        await client.register_and_start_service(GarminService.REALTIME_BODY_BATTERY)
 
         print("\n  ℹ️  All requested services are now live. Press Ctrl+C to stop.\n")
 
