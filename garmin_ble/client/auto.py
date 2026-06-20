@@ -41,7 +41,7 @@ class GarminClient(GarminClientBase):
                 all_found.append(f" - {name} [{addr}]")
 
                 name_lower = name.lower()
-                if "garmin" in name_lower or "fenix" in name_lower:
+                if "garmin" in name_lower or "fenix" in name_lower or "forerunner" in name_lower:
                     garmin_device = device
                     break
 
