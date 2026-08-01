@@ -17,6 +17,18 @@ class GarminService(IntEnum):
     REALTIME_BODY_BATTERY = 20
     REALTIME_RESPIRATION = 21
 
+class SystemEventType(IntEnum):
+    """GFDI system-event types (message 5030).
+
+    Only the values this library sends or acts on are named; the rest arrive as
+    raw integers on :class:`~garmin_ble.events.SystemEvent`.
+    """
+
+    SYNC_COMPLETE = 0
+    SYNC_FAIL = 1
+    TIME_UPDATED = 16
+
+
 class RequestType(IntEnum):
     REGISTER_ML_REQ = 0
     REGISTER_ML_RESP = 1

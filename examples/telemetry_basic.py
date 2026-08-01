@@ -1,54 +1,56 @@
+#!/usr/bin/env python3
+"""Live telemetry in about ten lines.
+
+Usage:
+    python examples/telemetry_basic.py
+    python examples/telemetry_basic.py --simulate   # no hardware needed
+"""
+
+import argparse
 import asyncio
 import logging
 
-from garmin_ble import GarminClient, GarminService
+from garmin_ble import GarminBleError, Watch, metrics
 from garmin_ble.logging import configure
 
-def on_heart_rate(hr, resting_hr):
-    print(f"❤️  HR: {hr} BPM (Resting: {resting_hr} BPM)")
 
-def on_steps(steps, goal):
-    print(f"👣 Steps: {steps} / {goal}")
-
-def on_hrv(rr_interval):
-    print(f"💓 HRV: {rr_interval} ms")
-
-def on_protobuf(request_id, smart_message):
-    print(f"\n📦 [GFDI] Request ID: {request_id}")
-    print("-" * 40)
-    print(smart_message)
-    print("-" * 40)
-
-async def main():
-    # Set up library logging (stderr by default; INFO level)
+async def main(simulate: bool) -> None:
     configure(level=logging.INFO)
 
-    # 1. Initialize the client (auto-discovers the watch via BLE)
-    client = GarminClient()
+    session = Watch.simulated() if simulate else Watch.discover()
 
-    # 2. Register our custom callback functions
-    client.on("hr", on_heart_rate)
-    client.on("steps", on_steps)
-    client.on("hrv", on_hrv)
-    client.on("protobuf", on_protobuf)
+    # Opening the session connects, completes the handshake, and starts the
+    # keep-alive heartbeat. Leaving the block always disconnects.
+    async with session as watch:
+        print(f"Connected to {watch.info.name}. Ctrl+C to stop.\n")
 
-    # 3. Connect
-    success = await client.connect()
-    if not success:
-        print("Failed to connect.")
-        return
+        # Registering a handler subscribes to the metric, which registers and
+        # starts its service on the watch. There is no second list of service
+        # codes to keep in sync with these.
+        @watch.on(metrics.HEART_RATE)
+        def _(reading: metrics.HeartRate) -> None:
+            print(f"❤️  {reading.bpm} BPM (resting {reading.resting_bpm})")
 
-    # 4. Register the telemetry services we want (not auto-registered)
-    for svc in (GarminService.REALTIME_HR, GarminService.REALTIME_STEPS,
-                GarminService.REALTIME_HRV):
-        await client.register_and_start_service(svc)
+        @watch.on(metrics.STEPS)
+        def _(reading: metrics.Steps) -> None:
+            print(f"👣 {reading.count:,} / {reading.goal:,} steps ({reading.fraction_of_goal:.0%})")
 
-    # 5. Run the sync loop
-    print("\nStarting live telemetry stream. Press Ctrl+C to exit.\n")
-    await client.start_sync_loop()
+        @watch.on(metrics.HRV)
+        def _(reading: metrics.Hrv) -> None:
+            print(f"💓 {reading.rr_ms} ms RR-interval")
+
+        # Nothing to poll and no sync loop to start: the session stays alive on
+        # its own until you leave the block.
+        await asyncio.Event().wait()
+
 
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--simulate", action="store_true", help="use an in-process watch")
+    args = parser.parse_args()
     try:
-        asyncio.run(main())
+        asyncio.run(main(args.simulate))
     except KeyboardInterrupt:
         print("\nExiting...")
+    except GarminBleError as exc:
+        print(f"\n{exc}")

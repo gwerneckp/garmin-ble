@@ -6,13 +6,14 @@ rotate a 3D solid cylinder representing the watch face in realtime,
 complete with backface culling, Z-sorting, and directional lighting.
 """
 
+import argparse
 import asyncio
 import logging
 import math
-import struct
+
 import pygame
 
-from garmin_ble import GarminClient, GarminService
+from garmin_ble import GarminBleError, Watch, metrics
 from garmin_ble.logging import configure
 
 
@@ -183,13 +184,20 @@ class Watch3DApp:
         
         self.faces.append(((255, 50, 50), 2, [idx_12_tip, idx_12_l, idx_12_r]))
 
-    def on_accel(self, samples):
-        if not samples:
+    def on_accel(self, packet: metrics.AccelPacket):
+        """Average one burst of samples into a gravity vector.
+
+        `sample.g` is already in g-units, so there is no scale constant to get
+        wrong here — which the old examples did, disagreeing on whether it was
+        256 or 1024 counts per g.
+        """
+        if not packet.samples:
             return
-        
-        avg_x = sum(s[0] for s in samples) / 3.0
-        avg_y = sum(s[1] for s in samples) / 3.0
-        avg_z = sum(s[2] for s in samples) / 3.0
+
+        count = len(packet.samples)
+        avg_x = sum(s.g[0] for s in packet.samples) / count
+        avg_y = sum(s.g[1] for s in packet.samples) / count
+        avg_z = sum(s.g[2] for s in packet.samples) / count
 
         self.smooth_x = self.smooth_x * (1 - self.alpha) + avg_x * self.alpha
         self.smooth_y = self.smooth_y * (1 - self.alpha) + avg_y * self.alpha
@@ -268,8 +276,11 @@ class Watch3DApp:
 
         pygame.display.flip()
 
-    async def run(self, client):
-        client.on("accel", self.on_accel)
+    async def run(self, watch: Watch):
+        # Registering the handler subscribes to the metric, which registers and
+        # starts the accelerometer service on the watch.
+        watch.on(metrics.ACCELEROMETER)(self.on_accel)
+
         while self.running:
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
@@ -279,24 +290,26 @@ class Watch3DApp:
             await asyncio.sleep(0.01)
             self.clock.tick(60)
 
-async def main():
+async def main(simulate: bool):
     configure(level=logging.WARNING)
     app = Watch3DApp()
-    client = GarminClient()
 
+    session = Watch.simulated() if simulate else Watch.discover()
     try:
-        if not await client.connect():
-            return
-        
-        await client.register_and_start_service(GarminService.REALTIME_ACCELEROMETER)
-        sync_task = asyncio.create_task(client.start_sync_loop())
-        await app.run(client)
-        sync_task.cancel()
+        # The session owns connecting, the handshake, the heartbeat, and
+        # teardown — including when pygame raises or you close the window.
+        async with session as watch:
+            await app.run(watch)
     except (asyncio.CancelledError, KeyboardInterrupt):
         pass
+    except GarminBleError as exc:
+        print(f"\n{exc}")
     finally:
         pygame.quit()
-        await client.disconnect()
+
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    parser = argparse.ArgumentParser(description="Live 3D watch orientation.")
+    parser.add_argument("--simulate", action="store_true", help="use an in-process watch")
+    args = parser.parse_args()
+    asyncio.run(main(args.simulate))

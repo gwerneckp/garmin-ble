@@ -4,7 +4,7 @@ GFDI messages are the application-layer protocol wrapped in COBS frames.
 """
 import struct
 import pytest
-from garmin_ble.gfdi import GfdiMessageBuilder
+from garmin_ble.protocol.gfdi import GfdiMessageBuilder
 
 
 class TestProtobufAck:
@@ -67,7 +67,7 @@ class TestProtobufAck:
 
     def test_crc_validates(self):
         """The embedded CRC must validate against the rest of the message."""
-        from garmin_ble.crc import compute_crc
+        from garmin_ble.protocol.crc import compute_crc
         msg = GfdiMessageBuilder.build_protobuf_ack(ref_msg_type=5043, request_id=1, data_offset=100)
         crc_embedded = struct.unpack('<H', msg[-2:])[0]
         crc_computed = compute_crc(msg[:-2])
@@ -108,7 +108,7 @@ class TestStatusAck:
         assert ref_read == ref_type
 
     def test_crc(self):
-        from garmin_ble.crc import compute_crc
+        from garmin_ble.protocol.crc import compute_crc
         msg = GfdiMessageBuilder.build_status_ack(ref_message_type=5043)
         crc_embedded = struct.unpack('<H', msg[-2:])[0]
         crc_computed = compute_crc(msg[:-2])
@@ -145,7 +145,7 @@ class TestSystemEvent:
         assert msg[5] == value
 
     def test_crc(self):
-        from garmin_ble.crc import compute_crc
+        from garmin_ble.protocol.crc import compute_crc
         msg = GfdiMessageBuilder.build_system_event(event_type=16, value=0)
         crc_embedded = struct.unpack('<H', msg[-2:])[0]
         crc_computed = compute_crc(msg[:-2])
@@ -187,7 +187,7 @@ class TestTimeResponse:
         assert -43200 <= offset <= 50400
 
     def test_crc(self):
-        from garmin_ble.crc import compute_crc
+        from garmin_ble.protocol.crc import compute_crc
         msg = GfdiMessageBuilder.build_time_response()
         crc_embedded = struct.unpack('<H', msg[-2:])[0]
         crc_computed = compute_crc(msg[:-2])

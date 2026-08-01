@@ -1,77 +1,94 @@
+#!/usr/bin/env python3
+"""Every telemetry stream at once, plus link events and live diagnostics.
+
+Usage:
+    python examples/telemetry_advanced.py
+    python examples/telemetry_advanced.py --simulate
+
+Shows:
+  * one merged stream instead of one callback per metric
+  * automatic reconnection with subscription restore
+  * typed link events (drops, time sync, service registration)
+  * a periodic diagnostics snapshot
+"""
+
+import argparse
 import asyncio
 import logging
+from datetime import timedelta
 
-from garmin_ble import GarminClient, GarminService
+from garmin_ble import GarminBleError, ServiceUnavailable, Watch, events
 from garmin_ble.logging import configure
 
-# 1. Telemetry Callbacks
-def on_heart_rate(hr, resting_hr):
-    print(f"❤️  HR: {hr} BPM (Resting: {resting_hr})")
 
-def on_calories(total, active):
-    print(f"🔥 Calories: {total} total ({active} active)")
+async def show_events(watch: Watch) -> None:
+    """Print link and protocol events as they happen."""
+    async for event in watch.events():
+        if isinstance(event, events.Disconnected):
+            print(f"\n⚠️  link dropped: {event.reason} — reconnecting…")
+        elif isinstance(event, events.Reconnected):
+            print(f"✅ back after {event.attempts} attempt(s), "
+                  f"{event.restored} subscription(s) restored\n")
+        elif isinstance(event, events.DeviceIdentified):
+            print(f"ℹ️  {event}")
+        elif isinstance(event, events.ServiceRegistered):
+            print(f"🔗 {event}")
 
-def on_intensity(mod, vig):
-    print(f"⚡ Intensity: {mod} mod, {vig} vig mins")
 
-def on_stress(level):
-    print(f"🧘 Stress: {level}/100")
+async def show_diagnostics(watch: Watch, every: float = 15.0) -> None:
+    """Print a protocol snapshot periodically."""
+    while True:
+        await asyncio.sleep(every)
+        print(f"\n{'─' * 58}")
+        for line in watch.diagnostics.summary().splitlines():
+            print(f"  {line}")
+        print(f"{'─' * 58}\n")
 
-def on_body_battery(level):
-    print(f"🔋 Body Battery: {level}/100")
 
-def on_accel(packet):
-    ts = packet["timestamp_ms"]
-    for i, (x, y, z) in enumerate(packet["samples"], 1):
-        print(f"⌚ Accel sample {i} @ {ts}ms: X={x:5d}  Y={y:5d}  Z={z:5d}  "
-              f"({x/1024:+.3f}g, {y/1024:+.3f}g, {z/1024:+.3f}g)")
+async def main(simulate: bool) -> None:
+    configure(level=logging.INFO)
 
-# 2. Connection Lifecycle Callbacks
-def on_disconnected():
-    print("⚠️  BLE Link dropped! Automatic reconnection is active.")
+    session = (
+        Watch.simulated()
+        if simulate
+        else Watch.discover(heartbeat=timedelta(seconds=60), reconnect="exponential")
+    )
 
-async def main():
-    configure(level=logging.DEBUG)
+    async with session as watch:
+        print("🚀 Garmin Advanced Feature Showcase")
+        print("   - One merged telemetry stream")
+        print("   - Automatic reconnection with subscription restore")
+        print("   - Typed link events")
+        print("   - Live diagnostics")
+        print("-" * 58)
+        print(f"\nConnected to {watch.info.name}. Ctrl+C to stop.\n")
 
-    client = GarminClient()
-
-    # Register callbacks for services we care about
-    client.on("hr", on_heart_rate)
-    client.on("accel", on_accel)
-    client.on("calories", on_calories)
-    client.on("intensity", on_intensity)
-    client.on("stress", on_stress)
-    client.on("body_battery", on_body_battery)
-    client.on("disconnected", on_disconnected)
-
-    print("🚀 Garmin Advanced Feature Showcase")
-    print("   - Automatic Reconnection")
-    print("   - Keep-alive Heartbeat")
-    print("   - Time Synchronization")
-    print("   - Manual service registration for Accel / Calories / Intensity")
-    print("-" * 50)
-
-    if await client.connect():
-        print("\n✅ Connected! Starting sync loop.\n")
-
-        await client.register_and_start_service(GarminService.REALTIME_HEART_RATE)
-        await client.register_and_start_service(GarminService.REALTIME_CALORIES)
-        await client.register_and_start_service(GarminService.REALTIME_INTENSITY)
-        await client.register_and_start_service(GarminService.REALTIME_STRESS)
-        await client.register_and_start_service(GarminService.REALTIME_ACCELEROMETER)
-        await client.register_and_start_service(GarminService.REALTIME_BODY_BATTERY)
-
-        print("\n  ℹ️  All requested services are now live. Press Ctrl+C to stop.\n")
+        background = [
+            asyncio.create_task(show_events(watch)),
+            asyncio.create_task(show_diagnostics(watch)),
+        ]
 
         try:
-            await client.start_sync_loop()
-        except asyncio.CancelledError:
-            pass
-    else:
-        print("❌ Could not find or connect to a Garmin watch.")
+            # `stream_all()` with no arguments takes everything this watch
+            # supports and interleaves it in arrival order. A metric the watch
+            # refuses is skipped with a note rather than aborting the run —
+            # which is why ServiceUnavailable is worth catching by name.
+            async for reading in watch.stream_all():
+                print(f"  {reading.metric.name:<14} {reading}")
+        except ServiceUnavailable as exc:
+            print(f"⚠️  {exc}")
+        finally:
+            for task in background:
+                task.cancel()
+
 
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--simulate", action="store_true", help="use an in-process watch")
+    args = parser.parse_args()
     try:
-        asyncio.run(main())
+        asyncio.run(main(args.simulate))
     except KeyboardInterrupt:
         print("\nStopping showcase...")
+    except GarminBleError as exc:
+        print(f"\n{exc}")

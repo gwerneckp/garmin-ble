@@ -6,14 +6,14 @@ regression tests — they are NOT from an external reference.
 """
 import struct
 import pytest
-from garmin_ble.crc import compute_crc
+from garmin_ble.protocol.crc import compute_crc
 
 
 class TestCrcConstants:
     """The constant table must match Gadgetbridge's reference."""
 
     def test_table_values(self):
-        from garmin_ble.crc import CONSTANTS
+        from garmin_ble.protocol.crc import CONSTANTS
         expected = [
             0x0000, 0xCC01, 0xD801, 0x1400, 0xF001, 0x3C00, 0x2800, 0xE401,
             0xA001, 0x6C00, 0x7800, 0xB401, 0x5000, 0x9C01, 0x8801, 0x4400
@@ -64,7 +64,7 @@ class TestCrcGfdiStructure:
 
     def test_gfdi_ack_crc(self):
         """Recreate the exact CRC from GfdiMessageBuilder.build_protobuf_ack."""
-        from garmin_ble.gfdi import GfdiMessageBuilder
+        from garmin_ble.protocol.gfdi import GfdiMessageBuilder
         msg = GfdiMessageBuilder.build_protobuf_ack(ref_msg_type=5043, request_id=0, data_offset=0)
         # Last 2 bytes are CRC little-endian
         crc_from_msg = struct.unpack('<H', msg[-2:])[0]

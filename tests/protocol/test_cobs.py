@@ -4,7 +4,7 @@ CobsCoDec is a core protocol layer. The Garmin variant uses a leading
 AND trailing 0x00 byte framing, which differs from standard COBS.
 """
 import pytest
-from garmin_ble.cobs import CobsCoDec
+from garmin_ble.protocol.cobs import CobsCoDec
 
 
 # ── Round-trip tests ─────────────────────────────────────────────

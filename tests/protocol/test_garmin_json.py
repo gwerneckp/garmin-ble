@@ -1,5 +1,5 @@
 import pytest
-from garmin_ble.parsers.garmin_json import GarminJson, GarminJsonException
+from garmin_ble.protocol.garmin_json import GarminJson, GarminJsonException
 
 def test_garmin_json_encode_decode_primitives():
     # Test Null
