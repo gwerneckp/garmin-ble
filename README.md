@@ -25,15 +25,18 @@ A clean-room Python implementation of Garmin's proprietary BLE protocol (GFDI V2
   - 🧘 Stress Level
   - 🔋 Body Battery
   - ⌚ Accelerometer
-- **On-Demand Service Registration** — telemetry services start only when you ask. No unwanted data streaming.
+- **Typed Metrics** — every reading is a dataclass with named fields, not positional tuples
+- **On-Demand Service Registration** — subscribing to a metric starts its service; the last unsubscribe stops it
 - **Protocol Decoding** — full implementation of the Garmin GFDI V2 stack:
   - Automated handshake (`CLOSE_ALL`, `REGISTER_ML`)
   - MLR (Multi-Link Routing) packet multiplexing
   - COBS (Consistent Overhead Byte Stuffing) encoding/decoding
   - Compiled Protobufs for `gdi_smart_proto`
   - CRC16 integrity checking
-- **Automatic Reconnection** — survives BLE drops with exponential backoff
+- **Automatic Reconnection** — survives BLE drops with exponential backoff and restores subscriptions
 - **Keep-Alive Heartbeat** — periodic time-sync to maintain the link
+- **Simulator & Replay** — develop, test, and reproduce bugs with no hardware
+- **Frame Tracing** — per-session capture files and live protocol diagnostics
 - **Hackable** — pure Python, no binary blobs, no proprietary SDKs
 
 ---
@@ -58,31 +61,65 @@ pip install -e ".[dev]"
 
 ```python
 import asyncio
-from garmin_ble import GarminClient, GarminService
-
-def on_heart_rate(hr, resting_hr):
-    print(f"❤️  {hr} BPM (Resting: {resting_hr} BPM)")
+from garmin_ble import Watch, metrics
 
 async def main():
-    client = GarminClient()
-    client.on("hr", on_heart_rate)
+    async with Watch.discover() as watch:
+        print(f"Connected to {watch.info.name}")
 
-    if await client.connect():
-        # Register and start only the services you want
-        await client.register_and_start_service(GarminService.REALTIME_HR)
-        print("Connected! Streaming data...")
-        await client.start_sync_loop()
+        async for reading in watch.stream(metrics.HEART_RATE):
+            print(f"❤️  {reading.bpm} BPM (resting {reading.resting_bpm})")
 
 asyncio.run(main())
 ```
 
+The session owns connecting, the GFDI handshake, the keep-alive heartbeat, and
+reconnection — and leaving the block always disconnects, including on `Ctrl+C`.
+Subscribing to a metric registers and starts its service on the watch; the last
+unsubscribe stops it.
+
+Prefer callbacks? Both sync and `async def` handlers work:
+
+```python
+@watch.on(metrics.HEART_RATE)
+async def _(reading: metrics.HeartRate) -> None:
+    await store(reading.bpm)
+```
+
+### No watch on hand
+
+Swap the factory and the same code runs with no hardware — useful for
+development, examples, and CI:
+
+```python
+async with Watch.simulated(profile="fenix7") as watch:   # in-process watch
+async with Watch.replay("session.gble") as watch:        # a recorded session
+```
+
+`watch.record(path)` writes a capture that `Watch.replay` reads back, so a
+protocol bug can be reproduced by someone who does not own the watch.
+
+### Reading device state
+
+```python
+battery = await watch.battery()          # -> Battery(percent=88, status="ok")
+result  = await watch.collect(timeout=60)  # one sample of every metric
+print(result)                              # renders a ✅/⏳ checklist
+```
+
+Failures raise: `WatchNotFound` carries the devices the scan *did* see,
+`HandshakeError` names the stage it stopped at, and `ServiceUnavailable` is
+raised when the watch declines a metric rather than leaving a stream that never
+yields.
+
 > [!TIP]
-> Make sure your watch is **not** connected to your phone via Bluetooth — Garmin watches only allow one BLE connection at a time.
+> Make sure your watch is **not** connected to your phone via Bluetooth — Garmin watches only allow one BLE connection at a time. Run `python examples/scan.py` if discovery fails; it lists every device in range and says why none matched.
 
-> [!IMPORTANT]
-> Telemetry services are **not** auto-started. Use `register_and_start_service()` for each service you need (e.g., `GarminService.REALTIME_STEPS`, `GarminService.REALTIME_ACCELEROMETER`). Only the GFDI control channel is registered automatically.
-
-See the [`examples/`](./examples/) directory for more complete usage patterns — including `basic_telemetry.py` (simple start), `full_demo.py` (advanced features), and `tilt_volume.py` (accelerometer-driven Mac volume control).
+See the [`examples/`](./examples/) directory for complete usage patterns —
+`telemetry_basic.py` (simplest start), `telemetry_advanced.py` (every stream at
+once, reconnection, diagnostics), `device_state.py` (protobuf in both
+directions), `full_walkthrough.py` (verify every feature), and
+`accelerometer_3d.py` (live 3D orientation). Most accept `--simulate`.
 
 ---
 
