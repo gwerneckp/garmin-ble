@@ -129,14 +129,15 @@ See the [GitHub Issues](https://github.com/gwerneckp/garmin-ble/issues) for the
 full breakdown of planned features, known gaps, and in-progress work. Milestones
 map to release versions:
 
-| Phase | Goal | Status |
-|-------|------|--------|
-| 1 | 🏗️ BLE transport & handshake | ✅ Done |
-| 2 | 📡 Live telemetry streaming | ✅ Done |
-| 3 | 🧠 Protobuf settings & device state | 🔄 In progress |
-| 4 | 🔔 Notifications & media control | ⏳ Planned |
-| 5 | 📁 File transfers (FIT / GPX downloads) | ⏳ Planned |
-| 6 | 🗄️ Persistence & dashboard | ⏳ Planned |
+| Release | Goal | Status |
+|---------|------|--------|
+| v0.1.0 | 🏗️ BLE transport & handshake | ✅ Done |
+| v0.2.0 | 📡 Live telemetry streaming | ✅ Done |
+| v0.3.0 | ⌚ `Watch` API, transports, simulator & replay | ✅ Done |
+| v0.4.0 | 🧠 Protobuf settings & device state | 🔄 In progress |
+| v0.5.0 | 🔔 Notifications & media control | ⏳ Planned |
+| v0.6.0 | 📁 File transfers (FIT / GPX downloads) | ⏳ Planned |
+| v1.0.0 | 🗄️ Stable release | ⏳ Planned |
 
 ---
 
