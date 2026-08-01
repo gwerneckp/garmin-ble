@@ -54,5 +54,4 @@ def encode(reading: Stress) -> bytes:
 
 STRESS = register(
     "stress", GarminService.REALTIME_STRESS, Stress, parse, encode,
-    "Stress score from 0 to 100",
 )

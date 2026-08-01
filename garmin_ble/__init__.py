@@ -39,7 +39,7 @@ from .report import Checklist, CollectionResult, Missing
 from .transport import WatchProfile, available_profiles
 from .watch import Battery, DeviceInfo, Diagnostics, InstalledApp, Watch, WatchSession
 
-__version__ = "0.3.1"
+__version__ = "0.3.2"
 
 __all__ = [
     # the API

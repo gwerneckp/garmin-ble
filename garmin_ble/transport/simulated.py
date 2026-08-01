@@ -508,10 +508,6 @@ class SimulatedTransport(Transport):
         """
         self._silent = True
 
-    def resume(self) -> None:
-        """Start emitting telemetry again."""
-        self._silent = False
-
     def simulate_drop(self, reason: str = "simulated link loss") -> None:
         """Pull the link out from under the host, as a real watch can."""
         self._open = False

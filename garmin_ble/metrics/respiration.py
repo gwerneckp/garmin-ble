@@ -45,5 +45,4 @@ def encode(reading: Respiration) -> bytes:
 
 RESPIRATION = register(
     "respiration", GarminService.REALTIME_RESPIRATION, Respiration, parse, encode,
-    "Breathing rate in breaths per minute",
 )

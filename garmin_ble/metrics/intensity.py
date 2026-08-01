@@ -47,5 +47,4 @@ def encode(reading: Intensity) -> bytes:
 
 INTENSITY = register(
     "intensity", GarminService.REALTIME_INTENSITY, Intensity, parse, encode,
-    "Weekly moderate and vigorous intensity minutes",
 )

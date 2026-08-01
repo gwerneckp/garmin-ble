@@ -45,5 +45,4 @@ def encode(reading: HeartRate) -> bytes:
 
 HEART_RATE = register(
     "heart_rate", GarminService.REALTIME_HR, HeartRate, parse, encode,
-    "Current and resting heart rate in bpm",
 )

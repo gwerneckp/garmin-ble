@@ -47,5 +47,4 @@ def encode(reading: Steps) -> bytes:
 
 STEPS = register(
     "steps", GarminService.REALTIME_STEPS, Steps, parse, encode,
-    "Daily step count and goal",
 )

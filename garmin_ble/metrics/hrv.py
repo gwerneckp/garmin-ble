@@ -48,5 +48,4 @@ def encode(reading: Hrv) -> bytes:
 
 HRV = register(
     "hrv", GarminService.REALTIME_HRV, Hrv, parse, encode,
-    "Beat-to-beat RR-intervals in milliseconds",
 )

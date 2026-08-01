@@ -8,7 +8,7 @@ bookkeeping for it lives here rather than in each caller.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Dict, Iterable, List, Mapping, Optional, Sequence
+from typing import Dict, Iterable, List, Optional, Sequence
 
 from .metrics.base import Metric, Reading
 
@@ -103,13 +103,6 @@ class Checklist:
             mark = BLOCKED if (miss and not miss.supported) else WAITING
             body.append(f"{indent}{mark}  {metric.name:<14} {miss.reason if miss else 'no data'}")
         return "\n".join(body)
-
-    @classmethod
-    def from_flags(cls, flags: Mapping[str, bool], indent: str = "    ") -> str:
-        """Render an arbitrary name-to-done mapping in the same style."""
-        return "\n".join(
-            f"{indent}{CHECK if done else WAITING}  {label}" for label, done in flags.items()
-        )
 
 
 __all__ = ["CollectionResult", "Missing", "Checklist", "CHECK", "WAITING", "BLOCKED"]

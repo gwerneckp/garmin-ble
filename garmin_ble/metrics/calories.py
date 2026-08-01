@@ -47,5 +47,4 @@ def encode(reading: Calories) -> bytes:
 
 CALORIES = register(
     "calories", GarminService.REALTIME_CALORIES, Calories, parse, encode,
-    "Total and active kilocalories burned today",
 )

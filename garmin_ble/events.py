@@ -9,6 +9,11 @@ surfaces here as a dataclass, consumable with::
 
 Each event names what happened and carries the fields that describe it, so
 handling one never means decoding a pair of bare integers.
+
+Events are delivered live rather than replayed, so a consumer sees only what is
+published after it starts iterating. There is deliberately no "connected" event:
+it could only fire before any consumer could exist. Connection is established by
+the session returning a `Watch` at all.
 """
 
 from __future__ import annotations
@@ -32,17 +37,6 @@ class WatchEvent:
     """Base class for link and protocol events."""
 
     at: datetime = field(default_factory=_now, compare=False, repr=False)
-
-
-@dataclass(frozen=True)
-class Connected(WatchEvent):
-    """The BLE link is up and the GFDI handshake has completed."""
-
-    address: str = ""
-    name: Optional[str] = None
-
-    def __str__(self) -> str:
-        return f"connected to {self.name or self.address}"
 
 
 @dataclass(frozen=True)
@@ -185,7 +179,6 @@ class ProtocolWarning(WatchEvent):
 
 __all__ = [
     "WatchEvent",
-    "Connected",
     "DeviceIdentified",
     "Disconnected",
     "Reconnected",

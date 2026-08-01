@@ -40,5 +40,4 @@ def encode(reading: BodyBattery) -> bytes:
 
 BODY_BATTERY = register(
     "body_battery", GarminService.REALTIME_BODY_BATTERY, BodyBattery, parse, encode,
-    "Body Battery energy reserve from 0 to 100",
 )

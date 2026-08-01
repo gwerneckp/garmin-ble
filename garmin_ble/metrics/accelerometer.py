@@ -136,5 +136,4 @@ def encode(reading: AccelPacket) -> bytes:
 
 ACCELEROMETER = register(
     "accelerometer", GarminService.REALTIME_ACCELEROMETER, AccelPacket, parse, encode,
-    "Three-axis accelerometer bursts at 256 counts per g",
 )

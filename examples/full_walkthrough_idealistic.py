@@ -1,44 +1,23 @@
 #!/usr/bin/env python3
-"""Full Walkthrough — the API tour, annotated with what it replaced.
-
-This file started life as a design sketch written against an API that did not
-exist. It now runs: the sketch became the library. Every ``# WAS:`` block quotes
-the call this version replaced, so the delta stays legible.
+"""Full Walkthrough — a guided tour of the garmin-ble API.
 
 Usage:
     python examples/full_walkthrough_idealistic.py            # simulated watch
     python examples/full_walkthrough_idealistic.py --real     # your actual watch
 
-The default is a simulated watch, so this runs anywhere with no hardware. That
-is itself one of the changes: the library had no way to be exercised without a
-physical device in range and disconnected from your phone.
+Defaults to a simulated watch, so it runs anywhere with no hardware. Covers
+connecting, every way of consuming telemetry, device queries, raw protobuf in
+both directions, error handling, and the debugging affordances.
 
-The design goals, in priority order:
-
-  1. **The type system should know what you're doing.** Every event used to be a
-     string (``client.on("hr", ...)``) and every payload untyped positional args
-     of unguessable arity. ``examples/telemetry_advanced.py`` called
-     ``GarminService.REALTIME_HEART_RATE``, which did not exist — the member was
-     ``REALTIME_HR``. An AttributeError at runtime that a typed API catches in
-     the editor.
-
-  2. **One concept, one registry.** A metric used to live in three disconnected
-     places: the ``GarminService`` enum, the ``callbacks`` dict key, and
-     ``_PARSE_TABLE``. Subscribing meant knowing all three lined up. Now a
-     metric is one object, and subscribing to it registers the service.
-
-  3. **Failures raise.** ``connect()`` returning ``False`` meant every caller
-     wrote the same "if not success" block and nobody ever learned *why*.
-
-  4. **Request/response is awaitable.** Reading the battery took twenty lines,
-     three protobuf imports, a global processor, and a polling loop.
-
-  5. **You can develop without a watch on your wrist.**
+For a pass/fail check that every feature works against your own watch, use
+``full_walkthrough.py`` instead.
 """
 
 import argparse
 import asyncio
+import tempfile
 from datetime import timedelta
+from pathlib import Path
 
 # Everything comes from one namespace. No reaching into `garmin_ble.protobuf.*`
 # for common operations, no `client.client.mtu_size` to read the MTU.
@@ -48,38 +27,14 @@ from garmin_ble import (
     RequestTimeout,
     ServiceUnavailable,
     Watch,
-    WatchNotFound,
     events,
     metrics,
 )
-from garmin_ble.errors import HandshakeError
 
 
 # ─────────────────────────────────────────────────────────────────────────────
 #  1. Connecting
 # ─────────────────────────────────────────────────────────────────────────────
-#
-# WAS:
-#     client = GarminClient()
-#     success = await client.connect(timeout=30.0)
-#     if not success:
-#         print("Could not find or connect to a Garmin watch.")
-#         return
-#     ...
-#     client.enable_heartbeat(60.0)
-#     sync_task = asyncio.create_task(client.start_sync_loop())
-#     ...
-#     sync_task.cancel()
-#     await client.disconnect()
-#
-# Five lifecycle calls the caller had to sequence correctly, plus a task they
-# had to remember to cancel, plus a bool they had to check.
-#
-# NOW: one context manager. Heartbeat and reconnection are policy, not
-# procedure — tuned by argument rather than by calling an extra method at the
-# right moment. Exiting the block always disconnects, including on exception
-# and on Ctrl+C.
-
 
 def open_watch(real: bool):
     """Return the session to run the tour against."""
@@ -107,16 +62,6 @@ async def main(real: bool) -> None:
 # ─────────────────────────────────────────────────────────────────────────────
 #  2. What did we actually connect to?
 # ─────────────────────────────────────────────────────────────────────────────
-#
-# WAS:
-#     client.device.name if client.device else 'Unknown'
-#     client.address
-#     client.client.mtu_size if client.client else '?'
-#
-# Three attributes, two possibly None, one reaching through to the underlying
-# bleak object. `watch.info` is a frozen dataclass that only exists once
-# connected, so none of its fields are Optional.
-
 
 async def walkthrough(watch: Watch) -> None:
     print(f"\nConnected to {watch.info.name} ({watch.info.address})")
@@ -136,28 +81,13 @@ async def walkthrough(watch: Watch) -> None:
     await stream_telemetry(watch)
     await device_queries(watch)
     await protobuf_and_events(watch)
+    await error_handling()
     await debugging(watch)
 
 
 # ─────────────────────────────────────────────────────────────────────────────
 #  3. Telemetry — subscription implies registration
 # ─────────────────────────────────────────────────────────────────────────────
-#
-# WAS:
-#     client.on("hr", lambda hr, r: on_heart_rate(tracker, hr, r))
-#     client.on("accel", lambda p: on_accel(tracker, p))
-#     ...twelve more lambdas whose arity you had to memorise...
-#     await client.register_and_start_service(GarminService.REALTIME_HR)
-#     await client.register_and_start_service(GarminService.REALTIME_ACCELEROMETER)
-#     ...ten more...
-#
-# Two parallel lists kept in sync by hand, joined only by a convention
-# ("hr" ↔ REALTIME_HR) the type checker could not see.
-#
-# NOW: `Metric` is the single handle. Subscribing registers the service and
-# starts the stream; the last unsubscribe stops it. Reference-counted, so two
-# parts of an app can both want heart rate without fighting.
-
 
 async def stream_telemetry(watch: Watch) -> None:
     print("\n── telemetry ───────────────────────────────────────────")
@@ -202,11 +132,6 @@ async def stream_telemetry(watch: Watch) -> None:
         break  # leaving the loop releases the subscription
 
     # ---- 3c. Merged stream, for "give me everything" ----
-    #
-    # WAS: twelve separate callbacks all writing into a shared FeatureTracker,
-    # plus a `while time.monotonic() < deadline: await asyncio.sleep(0.5)` poll
-    # to find out when they had all arrived.
-
     seen = set()
     async for sample in watch.stream_all(timeout=timedelta(seconds=2)):
         if sample.metric not in seen:
@@ -216,13 +141,6 @@ async def stream_telemetry(watch: Watch) -> None:
             break
 
     # ---- 3d. Collect-until-complete: the thing this walkthrough exists for ---
-    #
-    # WAS: ~40 lines of FeatureTracker, a manual deadline poll, and a set
-    # difference to work out what was missing.
-    #
-    # NOW: one await. Returns when every requested metric has produced at least
-    # one sample, or when the timeout expires — whichever comes first.
-
     print("\n  collecting one sample of every metric…")
     result = await watch.collect(
         Metric.ALL_TELEMETRY,
@@ -245,31 +163,6 @@ async def stream_telemetry(watch: Watch) -> None:
 # ─────────────────────────────────────────────────────────────────────────────
 #  4. Device queries — protobuf, but you don't have to know that
 # ─────────────────────────────────────────────────────────────────────────────
-#
-# WAS, to find out the battery level:
-#
-#     def handle_device_status(tracker, msg):
-#         if msg.HasField("remote_device_battery_status_response"):
-#             tracker.samples["battery_level"] = \
-#                 msg.remote_device_battery_status_response.current_battery_level
-#             tracker.checks["battery_rx"] = True
-#         ...
-#     client.protobuf_handler.register_processor("device_status_service", ...)
-#     request = gdi_smart_proto_pb2.Smart(
-#         device_status_service=gdi_device_status_pb2.DeviceStatusService(
-#             remote_device_battery_status_request=
-#                 gdi_device_status_pb2.DeviceStatusService
-#                     .RemoteDeviceBatteryStatusRequest()))
-#     await client.send_protobuf(request)
-#     for _ in range(20):
-#         if tracker.checks.get("battery_rx"):
-#             break
-#         await asyncio.sleep(0.5)
-#
-# Twenty lines, three protobuf imports, a global processor, and a polling loop —
-# to read one integer. The request id was generated internally and thrown away,
-# so there was no way to correlate a response with its request.
-
 
 async def device_queries(watch: Watch) -> None:
     print("\n── device ──────────────────────────────────────────────")
@@ -319,12 +212,9 @@ async def protobuf_and_events(watch: Watch) -> None:
     )
     print(f"  raw response: {response.current_battery_level}%")
 
-    # Responding to the *watch's* requests. WAS: one processor per top-level
-    # service field, with a chain of `if msg.HasField(...)` inside it, returning
-    # a fully-nested `Smart` you built by hand.
-    #
-    # NOW: dispatch on the concrete message type; return the bare response
-    # message and let the library wrap, frame, and correlate it.
+    # Responding to the watch's own requests: dispatch on the concrete message
+    # type and return the bare response. The library wraps it in the Smart
+    # envelope, frames it, and matches it to the incoming request id.
 
     @watch.responds_to(device_status.RemoteDeviceBatteryStatusRequest)
     async def _(request):
@@ -364,42 +254,41 @@ async def protobuf_and_events(watch: Watch) -> None:
 # ─────────────────────────────────────────────────────────────────────────────
 #  6. Errors that say what went wrong
 # ─────────────────────────────────────────────────────────────────────────────
-#
-# WAS: `connect()` returned False. `register_and_start_service()` returned None
-# after `await asyncio.sleep(0.5)` — it never checked whether the watch had
-# actually assigned a handle, so a failed registration looked exactly like a
-# successful one until the data silently never arrived. Parse errors were
-# logged and swallowed. There was not a single exception type in the library.
-
 
 async def error_handling() -> None:
-    try:
-        async with Watch.discover(timeout=timedelta(seconds=10)) as watch:
+    """Show a real failure, and describe the ones we will not provoke.
+
+    This deliberately does not scan for hardware: the tour runs simulated by
+    default, and a section that quietly used the radio would be both slow and
+    dependent on what happens to be in the room.
+    """
+    print("\n── errors ──────────────────────────────────────────────")
+
+    # A genuine refusal, provoked on a model that lacks the sensor. The Venu 3
+    # profile has no SpO2, and asking is the only way to find that out — the
+    # protocol has no capability query.
+    async with Watch.simulated(profile="venu3") as watch:
+        try:
             await watch.subscribe(metrics.SPO2)
+        except ServiceUnavailable as exc:
+            print(f"  ServiceUnavailable: {exc.metric.name} — {exc.reason}")
 
-    except WatchNotFound as exc:
-        # Carries every device the scan *did* see, so the message can be useful
-        # instead of "returned False".
-        print(f"  no watch: {exc}")
-        print(f"  candidates: {[d.name for d in exc.candidates]}")
-
-    except HandshakeError as exc:
-        # exc.stage is characteristic_discovery | close_all | register_ml
-        print(f"  handshake failed at {exc.stage}: {exc}")
-
-    except ServiceUnavailable as exc:
-        # Raised by subscribe() when the watch declines registration, instead of
-        # the old silent 0.5s sleep and a stream that never fired.
-        print(f"  {exc.metric.name} unavailable: {exc.reason}")
+    # The two connection failures, described rather than provoked:
+    #
+    #   WatchNotFound   — no match in range. `exc.candidates` lists every device
+    #                     the scan did see, which is usually what you need: the
+    #                     watch is normally there under a name the filter missed,
+    #                     or absent because it is paired to a phone.
+    #
+    #   HandshakeError  — the link came up but the protocol did not.
+    #                     `exc.stage` is characteristic_discovery (not a Garmin),
+    #                     close_all (busy with a phone), or register_ml.
+    print("  WatchNotFound / HandshakeError: see the source of this function")
 
 
 # ─────────────────────────────────────────────────────────────────────────────
 #  7. Debugging affordances
 # ─────────────────────────────────────────────────────────────────────────────
-#
-# WAS: `configure(level=logging.DEBUG)`, which turned on firehose logging for
-# the whole process and gave you hex dumps to decode by eye.
-
 
 async def debugging(watch: Watch) -> None:
     print("\n── diagnostics ─────────────────────────────────────────")
@@ -407,7 +296,8 @@ async def debugging(watch: Watch) -> None:
     # Record every frame in both directions to a replayable capture. Attach one
     # to a bug report and a maintainer reproduces it with `Watch.replay(path)` —
     # no hardware, no wrist.
-    watch.record("session.gble")
+    capture = Path(tempfile.gettempdir()) / "garmin-ble-session.gble"
+    watch.record(capture)
 
     # Per-watch structured tracing, not global logging config.
     frames = []
@@ -425,6 +315,7 @@ async def debugging(watch: Watch) -> None:
     print()
     for line in watch.diagnostics.summary().splitlines():
         print(f"  {line}")
+    print(f"\n  capture written to {capture}")
 
 
 if __name__ == "__main__":

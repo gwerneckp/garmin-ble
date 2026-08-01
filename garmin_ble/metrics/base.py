@@ -72,7 +72,6 @@ class Metric(Generic[R]):
     reading_type: Type[R] = field(compare=False, repr=False)
     parse: Callable[[bytes], Optional[R]] = field(compare=False, repr=False)
     encode: Callable[[R], bytes] = field(compare=False, repr=False)
-    description: str = field(default="", compare=False, repr=False)
 
     #: Every telemetry metric, in a stable order. Populated by the package
     #: ``__init__`` once all modules have been imported.
@@ -95,7 +94,6 @@ def register(
     reading_type: Type[R],
     parse: Callable[[bytes], Optional[R]],
     encode: Callable[[R], bytes],
-    description: str = "",
 ) -> Metric[R]:
     """Create a metric, link it to its reading type, and add it to the registry.
 
@@ -114,7 +112,6 @@ def register(
         reading_type=reading_type,
         parse=parse,
         encode=encode,
-        description=description,
     )
     reading_type.METRIC = metric
     _BY_SERVICE[int(service)] = metric

@@ -111,13 +111,17 @@ class DeviceInfo:
 
 @dataclass(frozen=True)
 class Battery:
-    """The watch's own battery state."""
+    """The watch's own battery state.
+
+    ``status`` is ``None`` when the watch omitted the field, which is not the
+    same as a healthy reading — do not treat an absent status as good news.
+    """
 
     percent: int
-    status: str = "ok"
+    status: Optional[str] = None
 
     def __str__(self) -> str:
-        return f"{self.percent}%"
+        return f"{self.percent}%" if self.status is None else f"{self.percent}% ({self.status})"
 
 
 @dataclass(frozen=True)
@@ -236,6 +240,9 @@ class Watch:
     #: How long to wait for the watch to answer a service registration.
     REGISTRATION_TIMEOUT = 5.0
 
+    #: Accepted values for the ``reconnect`` policy.
+    RECONNECT_POLICIES = ("exponential", "fixed", "off")
+
     def __init__(
         self,
         transport: Transport,
@@ -243,6 +250,12 @@ class Watch:
         reconnect: str = "exponential",
         supported: Optional[Sequence[Metric]] = None,
     ):
+        if reconnect not in self.RECONNECT_POLICIES:
+            raise ValueError(
+                f"reconnect must be one of {', '.join(self.RECONNECT_POLICIES)}, "
+                f"got {reconnect!r}"
+            )
+
         self._transport = transport
         self._heartbeat_interval = heartbeat
         self._reconnect_policy = reconnect
@@ -374,12 +387,18 @@ class Watch:
         cls,
         path: Union[str, Path],
         speed: Optional[float] = None,
+        loop: bool = False,
         heartbeat: Optional[Duration] = None,
         reconnect: str = "off",
     ) -> "WatchSession":
-        """Replay a capture written by :meth:`record`."""
+        """Replay a capture written by :meth:`record`.
+
+        ``speed`` scales the original inter-frame delays — 1.0 is real time,
+        higher is faster, ``None`` replays as fast as the loop allows. ``loop``
+        restarts the capture when it runs out instead of ending the session.
+        """
         return WatchSession(
-            lambda: ReplayTransport(path, speed=speed),
+            lambda: ReplayTransport(path, speed=speed, loop_forever=loop),
             heartbeat=_seconds(heartbeat),
             reconnect=reconnect,
         )
@@ -438,7 +457,6 @@ class Watch:
             model=model,
             firmware=firmware,
         )
-        self._emit(ev.Connected(address=link.address, name=self._info.name))
 
         if self._heartbeat_interval:
             self._heartbeat_task = asyncio.ensure_future(self._heartbeat_loop())
@@ -1273,19 +1291,6 @@ class Watch:
             self._pending.pop(request_id, None)
             self._pending_sent_at.pop(request_id, None)
 
-    async def send(self, message: Message) -> None:
-        """Send a protobuf without waiting for a reply."""
-        body = SmartRouter.wrap(message).SerializeToString()
-        self._next_request_id = (self._next_request_id + 1) % 65536
-        await self._send_gfdi(
-            gfdi.GfdiMessageBuilder.build_protobuf_request(
-                request_id=self._next_request_id,
-                data_offset=0,
-                total_length=len(body),
-                proto_bytes=body,
-            )
-        )
-
     def responds_to(self, message_type: Type[Message]) -> Callable[[Handler], Handler]:
         """Answer a message the watch sends us.
 
@@ -1309,8 +1314,12 @@ class Watch:
         """Read the watch's battery level."""
         ds = gdi_device_status_pb2.DeviceStatusService
         response = await self.request(ds.RemoteDeviceBatteryStatusRequest(), timeout=timeout)
-        status = ds.ResponseStatus.Name(response.status) if response.HasField("status") else "ok"
-        return Battery(percent=response.current_battery_level, status=status.lower())
+        status = (
+            ds.ResponseStatus.Name(response.status).lower()
+            if response.HasField("status")
+            else None
+        )
+        return Battery(percent=response.current_battery_level, status=status)
 
     async def find_my_watch(
         self, duration: Duration = 10.0, timeout: Optional[Duration] = 10.0

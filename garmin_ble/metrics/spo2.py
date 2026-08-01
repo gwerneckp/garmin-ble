@@ -46,5 +46,4 @@ def encode(reading: SpO2) -> bytes:
 
 SPO2 = register(
     "spo2", GarminService.REALTIME_SPO2, SpO2, parse, encode,
-    "Blood oxygen saturation percentage",
 )

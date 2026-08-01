@@ -6,6 +6,41 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 This project is pre-1.0: the public API may still change between minor
 versions, and breaking changes are called out explicitly.
 
+## [0.3.2] - 2026-08-01
+
+A sweep for the same class of defect as `Watch.capabilities` in 0.3.1:
+surfaces that look informative but cannot be.
+
+### Changed
+
+- **`Battery.status` is `Optional[str]` and defaults to `None`.** It previously
+  reported `"ok"` when the watch omitted the field, which claimed a healthy
+  reading where there was no information at all.
+
+- **`reconnect=` is validated.** Any value other than `"exponential"`,
+  `"fixed"`, or `"off"` now raises `ValueError`. Previously anything that was
+  not `"off"` silently meant `"exponential"`, so `reconnect="none"` reconnected.
+
+- **`Watch.replay()` accepts `loop=`**, which restarts a capture when it runs
+  out. The underlying support existed but no caller could reach it.
+
+### Removed
+
+- **The `Connected` event.** It was emitted during connection setup, before any
+  consumer of `watch.events()` could exist, so it could never be observed. A
+  session returning a `Watch` at all is the signal that the link is up.
+
+- **Unused API:** `Checklist.from_flags()`, `Watch.send()`,
+  `SimulatedTransport.resume()`, and `Metric.description`. None had any reader
+  in the library, tests, examples, or README.
+
+### Fixed
+
+- The API tour example no longer performs a live BLE scan when run in its
+  default simulated mode, which took 30 seconds and behaved differently
+  depending on what was in the room. It also writes its capture to a temp path
+  rather than the working directory.
+
 ## [0.3.1] - 2026-08-01
 
 ### Removed
@@ -98,5 +133,6 @@ Replaced `GarminClient` with the `Watch` API.
 - `GarminClient`, `GarminClientBase`, and `ProtobufHandler`. `cobs`, `crc`, and
   `gfdi` moved under `garmin_ble.protocol`.
 
+[0.3.2]: https://github.com/gwerneckp/garmin-ble/compare/v0.3.1...v0.3.2
 [0.3.1]: https://github.com/gwerneckp/garmin-ble/compare/v0.3.0...v0.3.1
 [0.3.0]: https://github.com/gwerneckp/garmin-ble/compare/v0.2.3...v0.3.0
