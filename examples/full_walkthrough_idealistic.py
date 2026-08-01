@@ -127,10 +127,11 @@ async def walkthrough(watch: Watch) -> None:
     await asyncio.sleep(0.5)
     print(f"  model={watch.info.model} firmware={watch.info.firmware} mtu={watch.info.mtu}")
 
-    # Ask before you subscribe, instead of waiting 60s for data this model will
-    # never send. Over real BLE there is no capability query, so every metric is
-    # reported as possible and subscribe() is what discovers the truth.
-    print(f"  supports: {', '.join(m.name for m in watch.capabilities)}")
+    # There is deliberately nothing here listing what the watch supports. The
+    # protocol has no capability query, so any such list would be a guess.
+    # Asking is the only honest test: subscribe() raises ServiceUnavailable
+    # when the watch declines, stream_all() emits a MetricUnavailable event for
+    # what it skips, and collect() marks it missing with supported=False.
 
     await stream_telemetry(watch)
     await device_queries(watch)

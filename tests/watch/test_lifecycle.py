@@ -65,10 +65,14 @@ class TestIdentity:
         with pytest.raises(NotConnected):
             unconnected.info
 
-    async def test_capabilities_reflect_the_model(self, limited_watch):
-        names = {m.name for m in limited_watch.capabilities}
-        assert "spo2" not in names
-        assert "heart_rate" in names
+    async def test_a_declined_metric_raises_with_a_reason(self, limited_watch):
+        """Asking is the only capability test the protocol offers."""
+        from garmin_ble.errors import ServiceUnavailable
+
+        with pytest.raises(ServiceUnavailable) as exc:
+            await limited_watch.subscribe(metrics.SPO2)
+        assert exc.value.metric is metrics.SPO2
+        assert exc.value.reason
 
 
 class TestTeardown:

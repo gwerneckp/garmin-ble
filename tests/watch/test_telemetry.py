@@ -182,6 +182,27 @@ class TestStreamAll:
         assert metrics.SPO2 not in seen
         assert seen
 
+    async def test_a_skipped_metric_is_reported_rather_than_swallowed(self, limited_watch):
+        """Skipping keeps the stream alive, but must not hide what is missing."""
+        from garmin_ble import events
+
+        declined = []
+
+        async def pump():
+            async for event in limited_watch.events():
+                if isinstance(event, events.MetricUnavailable):
+                    declined.append(event.metric)
+
+        task = asyncio.create_task(pump())
+        await asyncio.sleep(0)
+        try:
+            async for _ in limited_watch.stream_all(timeout=0.4):
+                pass
+            assert metrics.SPO2 in declined
+            assert metrics.ACCELEROMETER in declined
+        finally:
+            task.cancel()
+
     async def test_timeout_ends_the_iteration(self, watch):
         received = [r async for r in watch.stream_all(metrics.HEART_RATE, timeout=0.3)]
         assert received

@@ -398,16 +398,6 @@ class Watch:
         return self._connected and self._transport.is_open
 
     @property
-    def capabilities(self) -> Sequence[Metric]:
-        """Metrics this watch is known to support.
-
-        Only a simulated or replayed watch can answer this up front; over BLE
-        there is no capability query, so every metric is reported as possible
-        and :meth:`subscribe` is what discovers the truth.
-        """
-        return self._capabilities if self._capabilities is not None else Metric.ALL_TELEMETRY
-
-    @property
     def subscriptions(self) -> Sequence[Metric]:
         """Metrics currently registered and streaming."""
         return tuple(m for m, count in self._subscriptions.items() if count > 0)
@@ -1083,7 +1073,10 @@ class Watch:
 
         With no arguments, subscribes to everything this watch supports.
         """
-        wanted = list(metrics) or [m for m in Metric.ALL_TELEMETRY if m in self.capabilities]
+        # Ask for everything and let the watch decline what it does not do;
+        # `subscribe` skips refusals below. There is nothing to filter against
+        # up front, because the protocol cannot be asked.
+        wanted = list(metrics) or list(Metric.ALL_TELEMETRY)
         deadline = None
         seconds = _seconds(timeout)
         if seconds is not None:
@@ -1096,6 +1089,7 @@ class Watch:
                 subscribed.append(metric)
             except ServiceUnavailable as exc:
                 log.info("Skipping %s: %s", metric.name, exc.reason)
+                self._emit(ev.MetricUnavailable(metric=metric, reason=exc.reason))
 
         queue = self._all_telemetry.subscribe()
         try:

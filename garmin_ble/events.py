@@ -100,6 +100,24 @@ class ServiceRegistered(WatchEvent):
 
 
 @dataclass(frozen=True)
+class MetricUnavailable(WatchEvent):
+    """A metric was asked for and the watch declined it.
+
+    Emitted where a refusal would otherwise be swallowed — chiefly
+    :meth:`~garmin_ble.watch.Watch.stream_all`, which skips what it cannot get
+    and keeps going. Callers that need to know what they are not receiving
+    should watch for this rather than scrape the log.
+    """
+
+    metric: Optional["Metric"] = None
+    reason: str = ""
+
+    def __str__(self) -> str:
+        name = self.metric.name if self.metric else "metric"
+        return f"{name} unavailable: {self.reason}"
+
+
+@dataclass(frozen=True)
 class TimeSyncRequested(WatchEvent):
     """The watch asked for the current time; the library has already answered."""
 
@@ -172,6 +190,7 @@ __all__ = [
     "Disconnected",
     "Reconnected",
     "ServiceRegistered",
+    "MetricUnavailable",
     "TimeSyncRequested",
     "TimeSyncSent",
     "SystemEvent",
