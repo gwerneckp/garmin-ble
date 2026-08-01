@@ -72,8 +72,10 @@ def _compose(font: pygame.font.Font, text: str, color, outline, thickness, shado
 def outlined(surface: pygame.Surface, font: pygame.font.Font, text: str,
              center: Tuple[float, float], color: Sequence[int],
              outline: Sequence[int] = C.OUTLINE, thickness: int = 3,
-             shadow: bool = True) -> pygame.Rect:
+             shadow: bool = True, rotation: float = 0.0) -> pygame.Rect:
     composed = _compose(font, text, color, outline, C.px(thickness), shadow)
+    if rotation != 0.0:
+        composed = pygame.transform.rotate(composed, rotation)
     rect = composed.get_rect(center=(int(center[0]), int(center[1])))
     surface.blit(composed, rect)
     return rect
@@ -91,9 +93,11 @@ def panel(surface: pygame.Surface, rect: pygame.Rect, *, alpha: int = 244,
 
 # ── In-run HUD ─────────────────────────────────────────────────────────────
 
-def draw_hud(surface: pygame.Surface, fonts: Fonts, depth: int, best: int) -> None:
+def draw_hud(surface: pygame.Surface, fonts: Fonts, depth: int, best: int, bounce: float = 0.0) -> None:
     outlined(surface, fonts.tiny, "ISLAND", (C.px(96), C.px(44)), (255, 255, 255), thickness=2)
-    outlined(surface, fonts.big, str(depth), (C.px(96), C.px(100)), C.PAPER, thickness=4)
+    # Easing bounce: vertical jump that decays
+    y_offset = -int(bounce * C.px(16))
+    outlined(surface, fonts.big, str(depth), (C.px(96), C.px(100) + y_offset), C.PAPER, thickness=4)
 
     if best:
         outlined(surface, fonts.tiny, "BEST", (C.WIDTH - C.px(96), C.px(44)),
@@ -102,7 +106,7 @@ def draw_hud(surface: pygame.Surface, fonts: Fonts, depth: int, best: int) -> No
                  C.GOAL_GLOW, thickness=3)
 
 
-def draw_orientation(surface: pygame.Surface, fonts: Fonts, wrist, depth: int) -> None:
+def draw_orientation(surface: pygame.Surface, fonts: Fonts, wrist, depth: int, t: float = 0.0) -> None:
     """Live sensor readout, toggled with `d`.
 
     Face-up on a desk should read (+0.00, +0.00, -1.00) and level 0.0 deg. If
@@ -113,17 +117,36 @@ def draw_orientation(surface: pygame.Surface, fonts: Fonts, wrist, depth: int) -
     lean = math.degrees(math.asin(min(1.0, max(-1.0, math.hypot(gx, gy)))))
     biggest = max(range(3), key=lambda i: abs(raw[i]))
     want_sign = 1 if raw[biggest] > 0 else -1
-    lines = [
-        f"raw    x {raw[0]:+.3f}   y {raw[1]:+.3f}   z {raw[2]:+.3f}",
-        f"used   x {gx:+.3f}   y {gy:+.3f}   z {gz:+.3f}",
-        f"lean {lean:5.1f} deg    packets {wrist.packets}    island {depth}",
-        "",
-        "LAY THE WATCH FLAT, FACE UP:",
-        f"  used should read   x +0.000  y +0.000  z -1.000",
-        f"  biggest raw axis is {'xyz'[biggest]} ({raw[biggest]:+.2f})",
-        f"  face axis detected: {'xyz'[wrist.face_axis]} sign {wrist.face_sign:+d}"
-        f"   locked {wrist.face_locked}",
-    ]
+
+    if not wrist.is_live():
+        # Display helpful connection troubleshooting guide while pairing
+        dots = "." * (int(t * 2.5) % 4)
+        lines = [
+            f"STATUS: PAIRING/CONNECTING{dots:<3}",
+            "",
+            "TROUBLESHOOTING CHECKLIST:",
+            "  1. Ensure computer Bluetooth is ON.",
+            "  2. Disconnect watch from phone Connect app.",
+            "     (Watch supports only one connection)",
+            "  3. Keep watch close to computer.",
+            "",
+            "Scanning for Garmin BLE service..."
+        ]
+        color = (0, 255, 180) # Cyan for pairing state
+    else:
+        lines = [
+            f"raw    x {raw[0]:+.3f}   y {raw[1]:+.3f}   z {raw[2]:+.3f}",
+            f"used   x {gx:+.3f}   y {gy:+.3f}   z {gz:+.3f}",
+            f"lean {lean:5.1f} deg    packets {wrist.packets}    island {depth}",
+            "",
+            "LAY THE WATCH FLAT, FACE UP:",
+            f"  used should read   x +0.000  y +0.000  z -1.000",
+            f"  biggest raw axis is {'xyz'[biggest]} ({raw[biggest]:+.2f})",
+            f"  face axis detected: {'xyz'[wrist.face_axis]} sign {wrist.face_sign:+d}"
+            f"   locked {wrist.face_locked}",
+        ]
+        color = (150, 255, 190) # Green for live state
+
     pad = C.px(14)
     height = fonts.mono.get_height() * len(lines) + pad * 2
     rect = pygame.Rect(C.px(24), C.HEIGHT - height - C.px(24), C.px(620), height)
@@ -131,7 +154,7 @@ def draw_orientation(surface: pygame.Surface, fonts: Fonts, wrist, depth: int) -
     pygame.draw.rect(layer, (12, 16, 22, 200), layer.get_rect(), border_radius=C.px(10))
     surface.blit(layer, rect.topleft)
     for i, line in enumerate(lines):
-        surface.blit(fonts.mono.render(line, True, (150, 255, 190)),
+        surface.blit(fonts.mono.render(line, True, color),
                      (rect.x + pad, rect.y + pad + i * fonts.mono.get_height()))
 
 
@@ -150,9 +173,10 @@ def draw_connection_lost(surface: pygame.Surface, fonts: Fonts, t: float) -> Non
 def draw_title(surface: pygame.Surface, fonts: Fonts, t: float, best: int,
                waiting: bool, ready: bool = True) -> None:
     bob = math.sin(t * 1.5) * C.px(9)
+    angle = math.sin(t * 2.2) * 6.0  # Gentled animated tilt (max 6 degrees)
 
     outlined(surface, fonts.huge, "TILT", (C.WIDTH * 0.5, C.HEIGHT * 0.26 + bob),
-             C.GOAL_GLOW, thickness=6)
+             C.GOAL_GLOW, thickness=6, rotation=angle)
 
     if waiting:
         sub = "connecting to your watch..."
@@ -168,7 +192,7 @@ def draw_title(surface: pygame.Surface, fonts: Fonts, t: float, best: int,
         outlined(surface, fonts.small, f"BEST  {best}",
                  (C.WIDTH * 0.5, C.HEIGHT * 0.88), C.PAPER, thickness=2)
 
-    outlined(surface, fonts.tiny, "d sensor  ·  v watch  ·  f fullscreen  ·  esc to quit",
+    outlined(surface, fonts.tiny, "d sensor  ·  v watch  ·  esc to quit",
              (C.WIDTH * 0.5, C.HEIGHT - C.px(34)), (255, 255, 255), thickness=2)
 
 

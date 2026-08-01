@@ -94,6 +94,8 @@ class Game:
         self.clock = pygame.time.Clock()
         self.running = True
         self.paused = False
+        self.paused_background = None
+        self.depth_bounce = 0.0
         self.show_sensor = False
         self.show_watch = True
         self.t = 0.0
@@ -114,6 +116,7 @@ class Game:
 
     def start_run(self) -> None:
         self.depth = 1
+        self.depth_bounce = 1.0
         self.island = W.generate(self.depth, self.rng)
         self.next_island = None
         self.ball = PH.Ball(float(self.island.spawn[0]), float(self.island.spawn[1]))
@@ -150,6 +153,8 @@ class Game:
 
         centre = self._sprite_screen_pos()
         self.particles.burst(centre, 26, P.SPARKLE, C.GOAL_GLOW, 300.0)
+        # Add a gorgeous, colorful confetti explosion on success!
+        self.particles.burst(centre, 35, P.CONFETTI, speed=260.0)
         self._set_state(DESCEND)
 
     # ── Frame ──────────────────────────────────────────────────────────────
@@ -162,6 +167,8 @@ class Game:
         self.clouds.update(dt, scroll=self._cloud_scroll())
         self.particles.update(dt)
         self.particles.ambient(dt, 1.0 if self.state == TITLE else 0.7)
+        if self.depth_bounce > 0.0:
+            self.depth_bounce = max(0.0, self.depth_bounce - dt * 4.0)
 
         if self.state == TITLE:
             self._update_title(dt)
@@ -274,6 +281,7 @@ class Game:
         if f >= 1.0:
             assert self.next_island is not None
             self.depth += 1
+            self.depth_bounce = 1.0
             self.island = self.next_island
             self.next_island = None
             self.ball = PH.Ball(float(self.island.spawn[0]), float(self.island.spawn[1]))
@@ -282,11 +290,12 @@ class Game:
             self.camera.origin = (0.0, 0.0, 0.0)
             self.camera.pitch = C.CAM_PITCH
             self.audio.set_depth(self.depth)
+            self.particles.burst(self._sprite_screen_pos(), 18, P.DUST, (226, 244, 200), 150.0)
             self._set_state(PLAY)
 
     def _update_dying(self, dt: float) -> None:
         self.death_fall += dt
-        self.sprite.update(dt, self.ball, 1.0)
+        self.sprite.update(dt, self.ball, 1.0, dying=True)
         # Keep drifting on whatever velocity killed you, and accelerate down.
         self.ball.x += self.ball.vx * dt * 0.4
         self.ball.y += self.ball.vy * dt * 0.4
@@ -317,6 +326,8 @@ class Game:
             gravity = (math.cos(self.t * 0.53) * 0.13,
                        math.sin(self.t * 0.70) * 0.10,
                        -1.0)
+        pitch, roll = B.pitch_roll(gravity)
+        R.rotate_light(pitch, roll)
         return B.BoardTransform(gravity, origin)
 
     def _sprite_screen_pos(self):
@@ -344,12 +355,12 @@ class Game:
                          waiting=not self.wrist.is_live(),
                          ready=self.wrist.face_locked)
         elif self.state == CARD:
-            H.draw_hud(self.screen, self.fonts, self.depth, self.best)
+            H.draw_hud(self.screen, self.fonts, self.depth, self.best, self.depth_bounce)
             H.draw_card(self.screen, self.fonts, self.depth, self.best,
                         self.is_record, self.state_time,
                         ready=self.state_time >= C.CARD_INPUT_DELAY)
         else:
-            H.draw_hud(self.screen, self.fonts, self.depth, self.best)
+            H.draw_hud(self.screen, self.fonts, self.depth, self.best, self.depth_bounce)
             if not self.wrist.is_live():
                 H.draw_connection_lost(self.screen, self.fonts, self.t)
 
@@ -358,13 +369,18 @@ class Game:
             # reports, so it stays useful as a reference rather than becoming
             # a second view of the game's own correction.
             WM.draw_corner(self.screen, self.watch_model, self.fonts.tiny,
-                           self.wrist.raw_gravity())
+                           self.wrist.raw_gravity(),
+                           connecting=not self.wrist.is_live(),
+                           t=self.t)
 
         if self.show_sensor:
-            H.draw_orientation(self.screen, self.fonts, self.wrist, self.depth)
+            H.draw_orientation(self.screen, self.fonts, self.wrist, self.depth, self.t)
 
         if self.paused:
-            H.soft_blur(self.screen, 5)
+            if not hasattr(self, 'paused_background') or self.paused_background is None or self.paused_background.get_size() != self.screen.get_size():
+                self.paused_background = self.screen.copy()
+                H.soft_blur(self.paused_background, 5)
+            self.screen.blit(self.paused_background, (0, 0))
             H.draw_pause(self.screen, self.fonts)
 
         pygame.display.flip()
@@ -388,21 +404,22 @@ class Game:
         if self.state == DYING:
             fall = (self.death_fall ** 2) * 900.0
             self._queue_sprite(xf, self.ball, height=C.BALL_RADIUS - fall,
-                               fading=min(1.0, self.death_fall / C.DEATH_FALL_TIME))
+                               fading=min(1.0, self.death_fall / C.DEATH_FALL_TIME),
+                               dying=True)
         elif self.state == DESCEND:
             f = min(1.0, self.state_time / C.DESCEND_TIME)
             ease = f * f * (3.0 - 2.0 * f)
             ox, oz = self._drop_offset
             falling = self._transform((ox * ease, -DROP_HEIGHT * ease + C.BALL_RADIUS,
                                        oz * ease))
-            self._queue_sprite(falling, self.ball, height=0.0)
+            self._queue_sprite(falling, self.ball, height=0.0, happy=True)
         elif self.state != CARD:
             self._queue_sprite(xf, self.ball, height=C.BALL_RADIUS + self.ball.hop)
 
         self.painter.flush(self.screen)
 
     def _queue_sprite(self, xf: B.BoardTransform, ball: PH.Ball,
-                      height: float, fading: float = 0.0) -> None:
+                      height: float, fading: float = 0.0, happy: bool = False, dying: bool = False) -> None:
         world = xf(ball.x, ball.y, height)
         sx, sy, depth = self.camera.project(world)
         scale = C.CAM_FOV / depth
@@ -421,9 +438,11 @@ class Game:
             R.shadow(surface, (gx, gy), radius * 0.95 * (0.7 + 0.3 * fade),
                      radius * 0.44 * (0.7 + 0.3 * fade), int(96 * fade))
 
-        self.painter.custom(gdepth - 0.5, paint_shadow)
+        # Clamp shadow depth so it always sorts behind the ball outline (depth + 0.5)
+        # and on top of the ground tile (gdepth)
+        self.painter.custom(max(gdepth - 0.1, depth + 0.6), paint_shadow)
 
-        self.sprite.queue(self.painter, self.camera, xf, ball, height, squash)
+        self.sprite.queue(self.painter, self.camera, xf, ball, height, squash, happy, dying)
 
     # ── Events ─────────────────────────────────────────────────────────────
 
@@ -439,6 +458,7 @@ class Game:
                 self.watch_model = WM.WatchModel(radius=C.px(66))
                 self.fonts = H.Fonts()
                 H._TEXT_CACHE.clear()
+                self.paused_background = None
             elif event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_ESCAPE:
                     if self.state == TITLE:
@@ -447,10 +467,9 @@ class Game:
                         self.paused = not self.paused
                         if self.paused:
                             self.audio.stop_rolling()
+                            self.paused_background = None
                 elif event.key == pygame.K_q and self.paused:
                     self.running = False
-                elif event.key == pygame.K_f:
-                    pygame.display.toggle_fullscreen()
                 elif event.key == pygame.K_d:
                     self.show_sensor = not self.show_sensor
                 elif event.key == pygame.K_v:

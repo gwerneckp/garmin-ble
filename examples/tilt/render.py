@@ -56,9 +56,33 @@ def clamp(v: float, lo: float, hi: float) -> float:
     return lo if v < lo else hi if v > hi else v
 
 
-# ── Shading ────────────────────────────────────────────────────────────────
-
 _LIGHT = normalize(C.LIGHT_DIR)
+
+
+def rotate_light(pitch: float, roll: float) -> None:
+    """Rotate the light vector by the board's pitch and roll so light is board-local.
+
+    This prevents sudden changes/pops in board shading when the board tilts.
+    """
+    global _LIGHT
+    lx, ly, lz = C.LIGHT_DIR
+    # Convert world-space LIGHT_DIR to board-local coordinates
+    x, y, z = lx, lz, -ly
+
+    # Rotate around X-axis (Pitch)
+    cos_p = math.cos(pitch)
+    sin_p = math.sin(pitch)
+    y1 = y * cos_p - z * sin_p
+    z1 = y * sin_p + z * cos_p
+
+    # Rotate around Y-axis (Roll)
+    cos_r = math.cos(roll)
+    sin_r = math.sin(roll)
+    x2 = x * cos_r + z1 * sin_r
+    z2 = -x * sin_r + z1 * cos_r
+
+    # Apply the same coordinate swap as BoardTransform: (rx, -rz, ry)
+    _LIGHT = normalize((x2, -z2, y1))
 
 
 def cel_shade(base: Sequence[int], normal: Vec3, bands=None) -> Tuple[int, int, int]:
@@ -428,9 +452,17 @@ def shadow(surface: pygame.Surface, center: Tuple[float, float],
            rx: float, ry: float, alpha: int) -> None:
     rx = clamp(rx, 2.0, MAX_SCREEN_RADIUS)
     ry = clamp(ry, 1.0, MAX_SCREEN_RADIUS)
-    layer = pygame.Surface((int(rx * 2), int(ry * 2)), pygame.SRCALPHA)
-    pygame.draw.ellipse(layer, (30, 60, 40, alpha), layer.get_rect())
-    surface.blit(layer, (center[0] - rx, center[1] - ry))
+    # Draw multiple nested layers to create a soft, feathered shadow
+    for i in range(3):
+        factor = 1.0 + i * 0.18
+        cur_rx = rx * factor
+        cur_ry = ry * factor
+        cur_alpha = int(alpha * (0.5 - i * 0.15))
+        if cur_alpha <= 0:
+            continue
+        layer = pygame.Surface((int(cur_rx * 2), int(cur_ry * 2)), pygame.SRCALPHA)
+        pygame.draw.ellipse(layer, (20, 35, 25, cur_alpha), layer.get_rect())
+        surface.blit(layer, (center[0] - cur_rx, center[1] - cur_ry))
 
 
 _vignette: "pygame.Surface | None" = None

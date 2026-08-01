@@ -28,14 +28,20 @@ from . import config as C
 from .game import DYING, Game
 
 
-async def run_game(game: Game, watch: Watch) -> None:
-    # Registering the handler subscribes to the metric, which registers and
-    # starts the accelerometer service on the watch. The last unsubscribe —
-    # here, leaving the session — stops it again.
-    watch.on(metrics.ACCELEROMETER)(game.on_accel)
+async def discover_and_connect_watch(game: Game) -> None:
+    async with Watch.discover() as watch:
+        watch.on(metrics.ACCELEROMETER)(game.on_accel)
+        while game.running:
+            await asyncio.sleep(0.5)
 
+
+async def run_game(game: Game, watch_task: asyncio.Task) -> None:
     previous = time.perf_counter()
     while game.running:
+        # If watch discovery failed, propagate the exception to main
+        if watch_task.done() and watch_task.exception() is not None:
+            raise watch_task.exception()
+
         now = time.perf_counter()
         # Clamp the step: a stall (window drag, GC pause) must not teleport
         # the sprite through a wall of holes.
@@ -59,11 +65,12 @@ async def main(seed: int | None, mute: bool, fullscreen: bool) -> None:
 
     game = Game(seed=seed, audio=not mute, fullscreen=fullscreen)
 
+    # Start watch discovery concurrently in the background so the game window
+    # opens immediately and displays animations instead of freezing.
+    watch_task = asyncio.create_task(discover_and_connect_watch(game))
+
     try:
-        # The session owns connect, handshake, heartbeat and teardown —
-        # including when pygame raises or you close the window.
-        async with Watch.discover() as watch:
-            await run_game(game, watch)
+        await run_game(game, watch_task)
     except (asyncio.CancelledError, KeyboardInterrupt):
         pass
     except GarminBleError as exc:
@@ -72,6 +79,7 @@ async def main(seed: int | None, mute: bool, fullscreen: bool) -> None:
               "disconnect it from your phone first.")
         print("Run `python examples/scan.py` to see what is in range.")
     finally:
+        watch_task.cancel()
         pygame.quit()
 
 

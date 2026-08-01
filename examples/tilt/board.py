@@ -145,7 +145,7 @@ def draw_island(painter: R.Painter, camera: R.Camera, island: W.Island,
             if cell == W.GOAL:
                 pulse = 0.5 + 0.5 * math.sin(t * 4.0)
                 color = R.mix(C.GOAL, C.GOAL_GLOW, pulse)
-                painter.face(camera, quad, color, outline=C.OUTLINE, width=C.px(3))
+                painter.face(camera, quad, color, outline=C.OUTLINE, width=C.px(3), unlit=True)
                 _draw_goal_beacon(painter, camera, xf, cx, cy, t)
             elif cell == W.CRUMBLE:
                 fuse = island.fuses.get((cx, cy))
@@ -155,15 +155,16 @@ def draw_island(painter: R.Painter, camera: R.Camera, island: W.Island,
                     # Flash faster as the fuse burns down.
                     flash = 0.5 + 0.5 * math.sin(t * (14.0 + (1.5 - fuse) * 22.0))
                     color = R.mix(C.CRUMBLE, C.CRUMBLE_WARN, flash)
-                painter.face(camera, quad, color, outline=C.OUTLINE, width=C.px(2))
+                painter.face(camera, quad, color, outline=C.OUTLINE, width=C.px(2), unlit=True)
             else:
                 base = C.GRASS if (cx + cy) % 2 == 0 else C.GRASS_ALT
-                painter.face(camera, quad, base)
+                painter.face(camera, quad, base, unlit=True)
 
     # Silhouette outline around the whole island top.
     pts = [camera.project(p) for p in corners_top]
-    depth = sum(p[2] for p in pts) / 4.0
-    painter.polygon(depth - 2.0, [(p[0], p[1]) for p in pts], None, C.OUTLINE, C.px(4))
+    # Use the minimum depth of the corners to ensure the outline sorts in front of all top surface tiles
+    min_depth = min(p[2] for p in pts)
+    painter.polygon(min_depth - 1.0, [(p[0], p[1]) for p in pts], None, C.OUTLINE, C.px(4))
 
     _draw_decor(painter, camera, island, xf)
     _draw_bounces(painter, camera, island, xf, t)
@@ -236,14 +237,29 @@ def _draw_vines(painter: R.Painter, camera: R.Camera, island: W.Island,
             points.append(xf(px, py, lift))
 
         projected = [camera.project(p) for p in points]
-        depth = sum(p[2] for p in projected) / len(projected)
-        screen = [(p[0], p[1]) for p in projected]
 
-        def paint(surface: pygame.Surface, screen=screen) -> None:
-            pygame.draw.lines(surface, C.OUTLINE, False, screen, C.px(14))
-            pygame.draw.lines(surface, C.VINE, False, screen, C.px(9))
+        # Draw the stem segments and joints at their individual depths to avoid clipping.
+        # This keeps the roots smooth and prevents them from disappearing as a single block.
+        for i in range(segments):
+            proj0 = projected[i]
+            proj1 = projected[i + 1]
+            seg_depth = (proj0[2] + proj1[2]) / 2.0
 
-        painter.custom(depth, paint)
+            def paint_seg(surface: pygame.Surface, s0=proj0[:2], s1=proj1[:2]) -> None:
+                pygame.draw.line(surface, C.OUTLINE, (int(s0[0]), int(s0[1])), (int(s1[0]), int(s1[1])), C.px(14))
+                pygame.draw.line(surface, C.VINE, (int(s0[0]), int(s0[1])), (int(s1[0]), int(s1[1])), C.px(9))
+
+            painter.custom(seg_depth, paint_seg)
+
+        for i in range(segments + 1):
+            proj = projected[i]
+            pt_depth = proj[2]
+
+            def paint_joint(surface: pygame.Surface, pt=proj[:2]) -> None:
+                pygame.draw.circle(surface, C.OUTLINE, (int(pt[0]), int(pt[1])), C.px(7))
+                pygame.draw.circle(surface, C.VINE, (int(pt[0]), int(pt[1])), int(C.px(4.5)))
+
+            painter.custom(pt_depth, paint_joint)
 
         # Flower head — the part that actually shoves you.
         head_world = xf(hx, hy, 34.0)

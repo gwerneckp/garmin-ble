@@ -17,24 +17,25 @@ import pygame
 from . import config as C
 from . import render as R
 
-#: One shared scratch layer. At 2560x1664 a fresh SRCALPHA surface is ~17 MB;
-#: allocating two of those every frame costs more than everything drawn on them.
-_scratch: "pygame.Surface | None" = None
+#: Reusable local scratch surface for fast transparent particle drawing.
+_local_scratch: pygame.Surface | None = None
 
 
-def _layer() -> pygame.Surface:
-    global _scratch
-    if _scratch is None or _scratch.get_size() != (C.WIDTH, C.HEIGHT):
-        _scratch = pygame.Surface((C.WIDTH, C.HEIGHT), pygame.SRCALPHA)
+def _get_local_scratch(w: int, h: int) -> pygame.Surface:
+    global _local_scratch
+    size = max(w, h)
+    if _local_scratch is None or _local_scratch.get_width() < size:
+        _local_scratch = pygame.Surface((size, size), pygame.SRCALPHA)
     else:
-        _scratch.fill((0, 0, 0, 0))
-    return _scratch
+        _local_scratch.fill((0, 0, 0, 0))
+    return _local_scratch
 
 BUBBLE = 0
 SPARKLE = 1
 POLLEN = 2
 DUST = 3
 DROPLET = 4
+CONFETTI = 5
 
 
 @dataclass
@@ -99,15 +100,31 @@ class Particles:
         for _ in range(count):
             a = self.rng.uniform(0, math.tau)
             s = self.rng.uniform(0.35, 1.0) * speed
+            
+            # Select random bright colors for confetti
+            p_color = color
+            p_size = self.rng.uniform(3, 8)
+            p_life = self.rng.uniform(0.4, 0.95)
+            if kind == CONFETTI:
+                p_color = self.rng.choice([
+                    (255, 90, 130),   # Pink
+                    (90, 210, 255),   # Cyan
+                    (255, 230, 90),   # Yellow
+                    (180, 100, 255),  # Purple
+                    (255, 140, 60),   # Orange
+                ])
+                p_size = self.rng.uniform(6, 12)
+                p_life = self.rng.uniform(1.2, 2.5) # Confetti floats longer
+
             self.items.append(Particle(
                 kind=kind,
                 x=pos[0], y=pos[1],
                 vx=math.cos(a) * s,
-                vy=math.sin(a) * s - speed * 0.25,
-                life=self.rng.uniform(0.4, 0.95),
-                max_life=0.95,
-                size=self.rng.uniform(3, 8),
-                color=tuple(color),
+                vy=math.sin(a) * s - (speed * 0.4 if kind == CONFETTI else speed * 0.25),
+                life=p_life,
+                max_life=p_life,
+                size=p_size,
+                color=tuple(p_color),
                 wobble=self.rng.uniform(0, math.tau),
             ))
 
@@ -140,12 +157,15 @@ class Particles:
             p.life -= dt
             if p.life <= 0.0:
                 continue
-            p.wobble += dt * 2.4
-            p.x += (p.vx + math.sin(p.wobble) * 14.0) * dt
+            # Wobble is spin speed for confetti
+            p.wobble += dt * (5.0 if p.kind == CONFETTI else 2.4)
+            p.x += (p.vx + math.sin(p.wobble) * (20.0 if p.kind == CONFETTI else 14.0)) * dt
             p.y += p.vy * dt
-            if p.kind in (SPARKLE, DUST, DROPLET):
-                p.vy += 420.0 * dt      # these fall back down
-                p.vx *= max(0.0, 1.0 - 2.2 * dt)
+            if p.kind in (SPARKLE, DUST, DROPLET, CONFETTI):
+                gravity_acc = 160.0 if p.kind == CONFETTI else 420.0
+                p.vy += gravity_acc * dt      # these fall back down
+                decay_rate = 1.2 if p.kind == CONFETTI else 2.2
+                p.vx *= max(0.0, 1.0 - decay_rate * dt)
             if p.y < -120 or p.x < -160 or p.x > C.WIDTH + 160:
                 continue
             alive.append(p)
@@ -154,7 +174,6 @@ class Particles:
     def draw(self, surface: pygame.Surface) -> None:
         if not self.items:
             return
-        layer = _layer()
         ui = C.UI
         for p in self.items:
             fade = R.clamp(p.life / p.max_life, 0.0, 1.0)
@@ -163,29 +182,54 @@ class Particles:
             if p.kind == BUBBLE:
                 alpha = int(120 * min(1.0, fade * 2.2))
                 r = max(2, int(p.size * ui))
-                pygame.draw.circle(layer, (*p.color, alpha), pos, r, max(1, r // 5))
-                # Off-centre highlight makes a ring read as a bubble.
+                temp = _get_local_scratch(r * 2, r * 2)
+                pygame.draw.circle(temp, (*p.color, alpha), (r, r), r, max(1, r // 5))
                 pygame.draw.circle(
-                    layer, (255, 255, 255, min(255, alpha + 90)),
-                    (pos[0] - r // 3, pos[1] - r // 3), max(1, r // 4),
+                    temp, (255, 255, 255, min(255, alpha + 90)),
+                    (r - r // 3, r - r // 3), max(1, r // 4),
                 )
+                surface.blit(temp, (pos[0] - r, pos[1] - r))
             elif p.kind == POLLEN:
                 alpha = int(190 * min(1.0, fade * 2.0))
-                pygame.draw.circle(layer, (*p.color, alpha), pos, max(1, int(p.size * ui)))
+                r = max(1, int(p.size * ui))
+                temp = _get_local_scratch(r * 2, r * 2)
+                pygame.draw.circle(temp, (*p.color, alpha), (r, r), r)
+                surface.blit(temp, (pos[0] - r, pos[1] - r))
             elif p.kind == SPARKLE:
                 alpha = int(255 * fade)
                 s = p.size * fade * ui
-                pygame.draw.polygon(layer, (*p.color, alpha), [
-                    (p.x, p.y - s * 1.8), (p.x + s * 0.6, p.y),
-                    (p.x, p.y + s * 1.8), (p.x - s * 0.6, p.y),
+                w = int(s * 1.2) + 2
+                h = int(s * 3.6) + 2
+                temp = _get_local_scratch(w, h)
+                pygame.draw.polygon(temp, (*p.color, alpha), [
+                    (w // 2, 0), (w, h // 2),
+                    (w // 2, h), (0, h // 2),
                 ])
+                surface.blit(temp, (pos[0] - w // 2, pos[1] - h // 2))
             elif p.kind == DROPLET:
                 alpha = int(210 * fade)
-                pygame.draw.circle(layer, (*p.color, alpha), pos, max(1, int(p.size * fade * ui)))
-            else:  # DUST
+                r = max(1, int(p.size * fade * ui))
+                temp = _get_local_scratch(r * 2, r * 2)
+                pygame.draw.circle(temp, (*p.color, alpha), (r, r), r)
+                surface.blit(temp, (pos[0] - r, pos[1] - r))
+            elif p.kind == DUST:
                 alpha = int(150 * fade)
-                pygame.draw.circle(layer, (*p.color, alpha), pos, max(1, int(p.size * fade * ui)))
-        surface.blit(layer, (0, 0))
+                r = max(1, int(p.size * fade * ui))
+                temp = _get_local_scratch(r * 2, r * 2)
+                pygame.draw.circle(temp, (*p.color, alpha), (r, r), r)
+                surface.blit(temp, (pos[0] - r, pos[1] - r))
+            else: # CONFETTI
+                alpha = int(255 * fade)
+                s = p.size * fade * ui
+                w = int(s * 1.5)
+                h = int(s * 0.7)
+                temp = _get_local_scratch(w * 2, h * 2)
+                # Draw local rectangle
+                rect = pygame.Rect(w // 2, h // 2, w, h)
+                pygame.draw.rect(temp, (*p.color, alpha), rect)
+                # Rotate local rectangle
+                rotated = pygame.transform.rotate(temp, math.degrees(p.wobble * 1.5))
+                surface.blit(rotated, (pos[0] - rotated.get_width() // 2, pos[1] - rotated.get_height() // 2))
 
 
 class Clouds:

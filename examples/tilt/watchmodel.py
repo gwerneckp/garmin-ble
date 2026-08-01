@@ -213,7 +213,7 @@ class WatchModel:
 
 
 def draw_corner(surface: pygame.Surface, model: "WatchModel", font,
-                gravity: Sequence[float]) -> None:
+                gravity: Sequence[float], connecting: bool = False, t: float = 0.0) -> None:
     """The model on its own rounded plate, tucked into the bottom right."""
     size = C.px(190)
     margin = C.px(26)
@@ -221,14 +221,32 @@ def draw_corner(surface: pygame.Surface, model: "WatchModel", font,
 
     plate = pygame.Surface(rect.size, pygame.SRCALPHA)
     pygame.draw.rect(plate, (14, 20, 28, 150), plate.get_rect(), border_radius=C.px(18))
-    pygame.draw.rect(plate, (*C.PAPER, 70), plate.get_rect(),
-                     width=C.px(2), border_radius=C.px(18))
+    
+    if connecting:
+        # Pulse a cyan border while pairing
+        pulse = 0.5 + 0.5 * math.sin(t * 4.5)
+        glow_alpha = int(90 + 90 * pulse)
+        pygame.draw.rect(plate, (0, 255, 180, glow_alpha), plate.get_rect(),
+                         width=C.px(2), border_radius=C.px(18))
+    else:
+        pygame.draw.rect(plate, (*C.PAPER, 70), plate.get_rect(),
+                         width=C.px(2), border_radius=C.px(18))
     surface.blit(plate, rect.topleft)
+
+    if connecting:
+        # Rotate gravity in a circle so the watch model spins/wobbles dynamically while scanning
+        angle = t * 3.2
+        gravity = (math.sin(angle) * 0.6, math.cos(angle) * 0.6, -0.8)
 
     pitch, roll = model.draw(surface, rect.center, gravity)
 
-    label = font.render(
-        f"{math.degrees(pitch):+.0f}° {math.degrees(roll):+.0f}°",
-        True, (170, 214, 200),
-    )
+    if connecting:
+        dots = "." * (int(t * 2.5) % 4)
+        label_text = f"PAIRING{dots:<3}"
+        color = (0, 255, 180)
+    else:
+        label_text = f"{math.degrees(pitch):+.0f}° {math.degrees(roll):+.0f}°"
+        color = (170, 214, 200)
+
+    label = font.render(label_text, True, color)
     surface.blit(label, label.get_rect(midbottom=(rect.centerx, rect.bottom - C.px(8))))
