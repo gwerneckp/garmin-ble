@@ -10,6 +10,14 @@
 
 A clean-room Python implementation of Garmin's proprietary BLE protocol (GFDI V2). Stream live telemetry from your Garmin watch directly to your computer: no cloud, no phone, no Garmin Connect required.
 
+<p align="center">
+  <a href="https://github.com/gwerneckp/garmin-ble/blob/main/assets/garmin-ble-announcement.mp4">
+    <img src="https://raw.githubusercontent.com/gwerneckp/garmin-ble/main/assets/demo.gif" alt="garmin-ble in action: a 3D game steered by the watch's accelerometer, a bedside monitor, live 3D orientation, and a heartbeat-driven orb" width="800">
+  </a>
+  <br>
+  <sub>▶️ <a href="https://github.com/gwerneckp/garmin-ble/blob/main/assets/garmin-ble-announcement.mp4"><b>Watch the full announcement video</b></a> (80s, with sound)</sub>
+</p>
+
 ---
 
 ## Features
@@ -120,6 +128,11 @@ See the [`examples/`](./examples/) directory for complete usage patterns —
 once, reconnection, diagnostics), `device_state.py` (protobuf in both
 directions), `full_walkthrough.py` (verify every feature), and
 `accelerometer_3d.py` (live 3D orientation). Most accept `--simulate`.
+
+For fun, there are also a few things built on top of it — the ones in the video above:
+`python -m examples.tilt` (a 3D marble game you steer by tilting your wrist),
+`python -m examples.death_bed` (an ICU-style bedside monitor), and
+`pulse_orb.py` (a glowing orb that beats with your heart and shifts colour with your stress).
 
 ---
 
