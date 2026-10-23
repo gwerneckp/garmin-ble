@@ -21,7 +21,7 @@ class GarminBleError(Exception):
     """Base class for every error raised by this library."""
 
 
-# ── Discovery / connection ───────────────────────────────────────────────────
+# Discovery / connection
 
 
 class DiscoveredDevice:
@@ -42,7 +42,7 @@ class WatchNotFound(GarminBleError):
     """No device matching the discovery criteria was found in range.
 
     ``candidates`` holds every device the scan *did* see, which is almost always
-    what you need to debug this — the watch is usually there under a name the
+    what you need to debug this. The watch is usually there under a name the
     filter did not match, or missing because it is paired to a phone.
     """
 
@@ -67,7 +67,7 @@ class NotConnected(GarminBleError):
     """An operation needing a live link was attempted without one."""
 
 
-# ── Protocol ────────────────────────────────────────────────────────────────
+# Protocol
 
 
 class HandshakeStage(str):

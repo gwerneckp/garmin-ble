@@ -2,7 +2,7 @@
 
 The mapping from wrist to motion needs no trigonometry. If the board's normal
 is the watch's own face normal, then the in-plane component of gravity is
-exactly the ``(x, y)`` part of the gravity vector the watch reports — so the
+exactly the ``(x, y)`` part of the gravity vector the watch reports, so the
 accelerometer reading *is* the acceleration, scaled.
 """
 

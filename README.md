@@ -15,37 +15,37 @@ A clean-room Python implementation of Garmin's proprietary BLE protocol (GFDI V2
     <img src="https://raw.githubusercontent.com/gwerneckp/garmin-ble/main/assets/demo.gif" alt="garmin-ble in action: a 3D game steered by the watch's accelerometer, a bedside monitor, live 3D orientation, and a heartbeat-driven orb" width="800">
   </a>
   <br>
-  <sub>▶️ <a href="https://github.com/gwerneckp/garmin-ble/blob/main/assets/garmin-ble-announcement.mp4"><b>Watch the full announcement video</b></a> (80s, with sound)</sub>
+  <sub><a href="https://github.com/gwerneckp/garmin-ble/blob/main/assets/garmin-ble-announcement.mp4"><b>Watch the full announcement video</b></a> (80s, with sound)</sub>
 </p>
 
 ---
 
 ## Features
 
-- **Live Telemetry** — stream real-time sensor data over BLE without Garmin Connect:
-  - ❤️ Heart Rate & Resting Heart Rate
-  - 🚶 Daily Steps & Goal
-  - 📊 Heart Rate Variability (HRV)
-  - 🫁 Blood Oxygen (SpO2)
-  - 🌬️ Respiration Rate
-  - 🔥 Calories (total & active)
-  - ⚡ Intensity Minutes
-  - 🧘 Stress Level
-  - 🔋 Body Battery
-  - ⌚ Accelerometer
-- **Typed Metrics** — every reading is a dataclass with named fields, not positional tuples
-- **On-Demand Service Registration** — subscribing to a metric starts its service; the last unsubscribe stops it
-- **Protocol Decoding** — full implementation of the Garmin GFDI V2 stack:
-  - Automated handshake (`CLOSE_ALL`, `REGISTER_ML`)
+- Live telemetry over BLE, without Garmin Connect:
+  - heart rate and resting heart rate
+  - daily steps and step goal
+  - heart rate variability (HRV)
+  - blood oxygen (SpO2)
+  - respiration rate
+  - calories (total and active)
+  - intensity minutes
+  - stress level
+  - Body Battery
+  - accelerometer
+- Typed metrics. Each reading is a dataclass with named fields.
+- Subscribing to a metric starts its service on the watch. The last unsubscribe stops it.
+- The full GFDI V2 stack:
+  - handshake (`CLOSE_ALL`, `REGISTER_ML`)
   - MLR (Multi-Link Routing) packet multiplexing
-  - COBS (Consistent Overhead Byte Stuffing) encoding/decoding
-  - Compiled Protobufs for `gdi_smart_proto`
-  - CRC16 integrity checking
-- **Automatic Reconnection** — survives BLE drops with exponential backoff and restores subscriptions
-- **Keep-Alive Heartbeat** — periodic time-sync to maintain the link
-- **Simulator & Replay** — develop, test, and reproduce bugs with no hardware
-- **Frame Tracing** — per-session capture files and live protocol diagnostics
-- **Hackable** — pure Python, no binary blobs, no proprietary SDKs
+  - COBS (Consistent Overhead Byte Stuffing) encoding and decoding
+  - compiled protobufs for `gdi_smart_proto`
+  - CRC16 checks
+- Reconnection with exponential backoff. Subscriptions are restored after a BLE drop.
+- A periodic time-sync heartbeat that keeps the link alive.
+- A simulator and session replay, so you can develop, test, and reproduce bugs without a watch.
+- Per-session capture files and live protocol diagnostics.
+- Pure Python. No binary blobs or proprietary SDKs.
 
 ---
 
@@ -65,7 +65,7 @@ pip install -e ".[dev]"
 
 ---
 
-## Quick Start
+## Quick start
 
 ```python
 import asyncio
@@ -82,11 +82,11 @@ asyncio.run(main())
 ```
 
 The session owns connecting, the GFDI handshake, the keep-alive heartbeat, and
-reconnection — and leaving the block always disconnects, including on `Ctrl+C`.
-Subscribing to a metric registers and starts its service on the watch; the last
-unsubscribe stops it.
+reconnection. Leaving the block always disconnects, including on `Ctrl+C`.
+Subscribing to a metric registers and starts its service on the watch, and the
+last unsubscribe stops it.
 
-Prefer callbacks? Both sync and `async def` handlers work:
+Callbacks also work, both sync and `async def`:
 
 ```python
 @watch.on(metrics.HEART_RATE)
@@ -96,7 +96,7 @@ async def _(reading: metrics.HeartRate) -> None:
 
 ### No watch on hand
 
-Swap the factory and the same code runs with no hardware — useful for
+Swap the factory and the same code runs without hardware, which is useful for
 development, examples, and CI:
 
 ```python
@@ -115,66 +115,69 @@ result  = await watch.collect(timeout=60)  # one sample of every metric
 print(result)                              # renders a ✅/⏳ checklist
 ```
 
-Failures raise: `WatchNotFound` carries the devices the scan *did* see,
-`HandshakeError` names the stage it stopped at, and `ServiceUnavailable` is
-raised when the watch declines a metric rather than leaving a stream that never
-yields.
+Failures raise exceptions. `WatchNotFound` lists the devices the scan did see.
+`HandshakeError` names the stage where the handshake stopped.
+`ServiceUnavailable` is raised when the watch declines a metric, so you don't
+end up waiting on a stream that never yields.
 
 > [!TIP]
-> Make sure your watch is **not** connected to your phone via Bluetooth — Garmin watches only allow one BLE connection at a time. Run `python examples/scan.py` if discovery fails; it lists every device in range and says why none matched.
+> Disconnect your watch from your phone's Bluetooth first. Garmin watches accept only one BLE connection at a time. If discovery fails, run `python examples/scan.py`. It lists every device in range and says why none matched.
 
-See the [`examples/`](./examples/) directory for complete usage patterns —
+The [`examples/`](./examples/) directory has complete scripts:
 `telemetry_basic.py` (simplest start), `telemetry_advanced.py` (every stream at
 once, reconnection, diagnostics), `device_state.py` (protobuf in both
 directions), `full_walkthrough.py` (verify every feature), and
 `accelerometer_3d.py` (live 3D orientation). Most accept `--simulate`.
 
-For fun, there are also a few things built on top of it — the ones in the video above:
+The demos from the video are there too:
 `python -m examples.tilt` (a 3D marble game you steer by tilting your wrist),
 `python -m examples.death_bed` (an ICU-style bedside monitor), and
-`pulse_orb.py` (a glowing orb that beats with your heart and shifts colour with your stress).
+`pulse_orb.py` (an orb that pulses with your heart rate and changes colour with your stress).
 
 ---
 
-## Status & Roadmap
+## Status and roadmap
 
-See the [GitHub Issues](https://github.com/gwerneckp/garmin-ble/issues) for the
-full breakdown of planned features, known gaps, and in-progress work. Milestones
-map to release versions:
+[ROADMAP.md](./ROADMAP.md) and the [GitHub issues](https://github.com/gwerneckp/garmin-ble/issues)
+list planned features, known gaps, and work in progress. Each milestone is a
+release:
 
 | Release | Goal | Status |
 |---------|------|--------|
-| v0.1.0 | 🏗️ BLE transport & handshake | ✅ Done |
-| v0.2.0 | 📡 Live telemetry streaming | ✅ Done |
-| v0.3.0 | ⌚ `Watch` API, transports, simulator & replay | ✅ Done |
-| v0.4.0 | 🧠 Protobuf settings & device state | 🔄 In progress |
-| v0.5.0 | 🔔 Notifications & media control | ⏳ Planned |
-| v0.6.0 | 📁 File transfers (FIT / GPX downloads) | ⏳ Planned |
-| v1.0.0 | 🗄️ Stable release | ⏳ Planned |
+| v0.1.0 | BLE transport and handshake | Done |
+| v0.2.0 | Live telemetry streaming | Done |
+| v0.3.0 | `Watch` API, transports, simulator, and replay | Done |
+| v0.4.0 | Protobuf settings and device state | In progress |
+| v0.5.0 | Notifications and media control | Planned |
+| v0.6.0 | File transfers (FIT and GPX downloads) | Planned |
+| v1.0.0 | Stable release | Planned |
 
 ---
 
-## Design Philosophy
+## Design philosophy
 
-`garmin-ble` is a **wire-protocol library**, not a feature-complete application. It knows how to encode, send, decode, and respond to Garmin's BLE protobufs — and nothing more.
+`garmin-ble` is a wire-protocol library. It encodes, sends, decodes, and responds to Garmin's BLE protobufs, and that is all it does.
 
-This means:
-- The library does **not** fetch weather from OpenWeatherMap, sync calendars via CalDAV, or play sounds when the watch says "find my phone".
-- Instead it provides the building blocks — protobuf encode/decode, callbacks for incoming messages, and transport helpers.
-- **Callers** wire up the OS integration, external APIs, and user-facing features.
+The library does not fetch weather from OpenWeatherMap, sync calendars over CalDAV, or play a sound when the watch asks to find your phone. It gives you protobuf encoding and decoding, callbacks for incoming messages, and transport helpers. Your code handles OS integration, external APIs, and anything user-facing.
 
-This keeps the library focused, testable, and free of the endless feature creep that plagues integration-heavy projects.
+This keeps the library small and testable, and keeps integrations out of it.
 
-**Consider using Gadgetbridge instead if:** you want a full-featured open-source replacement for the Garmin Connect app on your Android phone.
+If you want an open-source replacement for the Garmin Connect app on Android, use [Gadgetbridge](https://codeberg.org/Freeyourgadget/Gadgetbridge).
 
-## Project Mission
+## Why
 
-**Own your data.** Garmin devices capture a wealth of physiological data, but Garmin Connect locks it behind a cloud service. This library gives you direct, programmatic access to your watch over BLE — no internet required.
+Garmin watches record a lot of physiological data, and Garmin Connect keeps it in Garmin's cloud. This library reads it straight from the watch over BLE, with no internet connection.
 
 ---
 
-## Acknowledgements & License
+## Contributing
 
-This project builds on the extraordinary reverse-engineering work of the [Gadgetbridge](https://codeberg.org/Freeyourgadget/Gadgetbridge) team. The protocol logic, COBS decoding, and `.proto` schemas are derived from their open-source Java implementation.
+Contributions are welcome, especially test reports from watch models that haven't been tried yet. See [CONTRIBUTING.md](./CONTRIBUTING.md).
 
-Licensed under the **GNU Affero General Public License v3.0 (AGPL-3.0)** — see [`LICENSE`](./LICENSE) for details.
+---
+
+## Acknowledgements and license
+
+This project builds on the reverse-engineering work of the [Gadgetbridge](https://codeberg.org/Freeyourgadget/Gadgetbridge) team. The protocol logic, COBS decoding, and `.proto` schemas are derived from their open-source Java implementation.
+
+Licensed under the GNU Affero General Public License v3.0 (AGPL-3.0). See [`LICENSE`](./LICENSE).

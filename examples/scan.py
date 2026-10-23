@@ -7,7 +7,7 @@ Usage:
 
 Run this first when discovery fails. It prints every device in range, marks the
 ones whose advert name looks like a Garmin wearable, and says explicitly if none
-matched — which is almost always one of:
+matched. The cause is almost always one of:
 
   * the watch is connected to your phone (Garmin allows one BLE client at a time)
   * the watch is still connected to *this* machine from an earlier run
@@ -57,7 +57,7 @@ async def main(timeout: float) -> None:
         print("to it directly and skip the name filter:")
         print("  Watch.at('<address>')      # by BLE address")
         print("  Watch.named('<pattern>')   # by glob on the advert name")
-        print("\nIf it is not in the list at all, it is not advertising — it is")
+        print("\nIf it is not in the list at all, it is not advertising. It is")
         print("probably still connected to your phone, or to this machine from an")
         print("earlier run. Disconnect it there and scan again.")
     else:

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Pulse Orb — a glowing orb that beats with your heart.
+"""Pulse Orb: a glowing orb that beats with your heart.
 
 Usage:
     python examples/pulse_orb.py

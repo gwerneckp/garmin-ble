@@ -29,20 +29,20 @@ async def main(simulate: bool) -> None:
     async with session as watch:
         print(f"✅ Connected to {watch.info.name}\n")
 
-        # ── The watch asking us ──────────────────────────────────────────────
+        # The watch asking us
         #
         # Dispatch is on the concrete message type. Return the bare response and
         # the library wraps it in the Smart envelope, frames it, and matches it
         # to the incoming request id.
         @watch.responds_to(DeviceStatus.RemoteDeviceBatteryStatusRequest)
         def _(_request):
-            print("📱 Watch asked for the phone's battery level — replying 99%")
+            print("📱 Watch asked for the phone's battery level, replying 99%")
             return DeviceStatus.RemoteDeviceBatteryStatusResponse(
                 status=DeviceStatus.ResponseStatus.OK,
                 current_battery_level=99,
             )
 
-        # ── Us asking the watch ──────────────────────────────────────────────
+        # Us asking the watch
         #
         # `watch.battery()` is the typed convenience wrapper.
         print("📡 Requesting battery status...")

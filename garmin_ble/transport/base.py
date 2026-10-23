@@ -1,9 +1,9 @@
 """The transport contract.
 
-A transport is the narrowest possible waist between :class:`~garmin_ble.watch.Watch`
+A transport is the minimal interface between :class:`~garmin_ble.watch.Watch`
 and the outside world: open a link, write bytes, deliver bytes back, close.
-Everything above it — handshake, handles, GFDI, metrics — is transport-agnostic,
-which is what lets the same ``Watch`` code drive a real radio, an in-process
+Everything above it (handshake, handles, GFDI, metrics) is transport-agnostic,
+which lets the same ``Watch`` code drive a real radio, an in-process
 simulator, or a recorded capture.
 """
 
@@ -58,7 +58,7 @@ class Transport(abc.ABC):
         """Begin delivering inbound packets.
 
         Called once the layer above is fully wired. Transports that generate
-        traffic on their own — replay, above all — must hold it until here, or
+        traffic on their own, such as replay, must hold it until here, or
         the first frames arrive before anything is listening for them.
         """
         return None

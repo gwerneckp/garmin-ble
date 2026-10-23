@@ -1,7 +1,7 @@
 """The seed-sprite: a real 3D ball that rolls, wearing a face.
 
 The body is an icosphere carried through the same transform as the board, so
-it is lit and depth-sorted like everything else and — crucially — it *spins*.
+it is lit and depth-sorted like everything else, and it *spins*.
 The rotation is derived from the distance actually rolled, so the surface
 patches track the ground the way a real ball does instead of sliding.
 
@@ -42,7 +42,7 @@ class Sprite:
         self.spin = R.IDENTITY   # board-local orientation of the body
         self._reortho = 0
 
-    # ── State ──────────────────────────────────────────────────────────────
+    # State
 
     def update(self, dt: float, ball, danger: float = 0.0, dying: bool = False) -> None:
         """Advance the face simulation, blinking and steering the gaze."""
@@ -108,7 +108,7 @@ class Sprite:
     def bump(self) -> None:
         self.wince = 1.0
 
-    # ── Drawing ────────────────────────────────────────────────────────────
+    # Drawing
 
     def queue(self, painter: R.Painter, camera: R.Camera, xf, ball,
               height: float, squash: Tuple[float, float], happy: bool = False, dying: bool = False) -> None:
@@ -406,7 +406,7 @@ class Sprite:
             rect.center = (int(ex), int(eye_y))
             pygame.draw.ellipse(surface, C.SPROUT_EYE, rect)
 
-            # Two catchlights — one big towards the sun, one small opposite.
+            # Two catchlights: one big towards the sun, one small opposite.
             big = pygame.Rect(0, 0, max(2, int(base_w * 0.82)), max(2, int(base_h * 0.72)))
             big.center = (int(ex - base_w * 0.30), int(eye_y - base_h * 0.36))
             pygame.draw.ellipse(surface, (255, 255, 255), big)

@@ -91,7 +91,7 @@ def panel(surface: pygame.Surface, rect: pygame.Rect, *, alpha: int = 244,
     surface.blit(layer, rect.topleft)
 
 
-# ── In-run HUD ─────────────────────────────────────────────────────────────
+# In-run HUD
 
 def draw_hud(surface: pygame.Surface, fonts: Fonts, depth: int, best: int, bounce: float = 0.0) -> None:
     outlined(surface, fonts.tiny, "ISLAND", (C.px(96), C.px(44)), (255, 255, 255), thickness=2)
@@ -159,7 +159,7 @@ def draw_orientation(surface: pygame.Surface, fonts: Fonts, wrist, depth: int, t
 
 
 def draw_connection_lost(surface: pygame.Surface, fonts: Fonts, t: float) -> None:
-    """Shown while the library is reconnecting — the run keeps its state."""
+    """Shown while the library is reconnecting. The run keeps its state."""
     pulse = 0.5 + 0.5 * math.sin(t * 4.0)
     rect = pygame.Rect(0, 0, C.px(520), C.px(92))
     rect.center = (C.WIDTH // 2, C.HEIGHT - C.px(84))
@@ -168,7 +168,7 @@ def draw_connection_lost(surface: pygame.Surface, fonts: Fonts, t: float) -> Non
              rect.center, C.INK, thickness=2, shadow=False)
 
 
-# ── Title ──────────────────────────────────────────────────────────────────
+# Title
 
 def draw_title(surface: pygame.Surface, fonts: Fonts, t: float, best: int,
                waiting: bool, ready: bool = True) -> None:
@@ -196,7 +196,7 @@ def draw_title(surface: pygame.Surface, fonts: Fonts, t: float, best: int,
              (C.WIDTH * 0.5, C.HEIGHT - C.px(34)), (255, 255, 255), thickness=2)
 
 
-# ── Death card ─────────────────────────────────────────────────────────────
+# Death card
 
 def draw_card(surface: pygame.Surface, fonts: Fonts, depth: int, best: int,
               is_record: bool, t: float, ready: bool) -> None:
@@ -227,8 +227,8 @@ def draw_card(surface: pygame.Surface, fonts: Fonts, depth: int, best: int,
 
     outlined(surface, fonts.tiny, "ISLAND", (cx, top + C.px(116)), C.INK,
              thickness=0, shadow=False)
-    # Ink on cream, not gold on cream — the score is the one number that has
-    # to be legible from across the room.
+    # Ink on cream rather than gold on cream: the score is the one number that
+    # has to be legible from across the room.
     outlined(surface, fonts.huge, str(depth), (cx, top + C.px(186)),
              C.CARD_SCORE, thickness=0, shadow=False)
 
@@ -252,7 +252,7 @@ def draw_card(surface: pygame.Surface, fonts: Fonts, depth: int, best: int,
         surface.blit(text, text.get_rect(center=pill.center))
 
 
-# ── Pause ──────────────────────────────────────────────────────────────────
+# Pause
 
 def draw_pause(surface: pygame.Surface, fonts: Fonts) -> None:
     veil = pygame.Surface((C.WIDTH, C.HEIGHT), pygame.SRCALPHA)

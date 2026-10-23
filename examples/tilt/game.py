@@ -1,6 +1,6 @@
 """The state machine, the run loop, and the descent between islands.
 
-States are deliberately few — TITLE, PLAY, DESCEND, DYING, CARD — because the
+States are deliberately few (TITLE, PLAY, DESCEND, DYING, CARD) because the
 whole design goal is that a run never stops to show you a menu. Death spends
 0.8 seconds on drama and then hands control straight back.
 """
@@ -33,7 +33,7 @@ TITLE, PLAY, DESCEND, DYING, CARD = range(5)
 DROP_HEIGHT = 900.0
 
 #: ...and how far to the side. Looking straight down, an island stacked
-#: directly beneath the one you are leaving is completely hidden by it — the
+#: directly beneath the one you are leaving is completely hidden by it: the
 #: island above is nearer, so it paints over the top. Offsetting the tower into
 #: a staircase means the board you are falling towards is in clear view the
 #: whole way down, which is the difference between a transition and a blindfold.
@@ -112,7 +112,7 @@ class Game:
 
         self._title_island = W.generate(1, random.Random(4))
 
-    # ── Run lifecycle ──────────────────────────────────────────────────────
+    # Run lifecycle
 
     def start_run(self) -> None:
         self.depth = 1
@@ -157,7 +157,7 @@ class Game:
         self.particles.burst(centre, 35, P.CONFETTI, speed=260.0)
         self._set_state(DESCEND)
 
-    # ── Frame ──────────────────────────────────────────────────────────────
+    # Frame
 
     def update(self, dt: float) -> None:
         self.t += dt
@@ -198,8 +198,8 @@ class Game:
         self.camera.origin = (0.0, 165.0, 0.0)
 
         self.sprite.update(dt, PH.Ball(0.0, 0.0))
-        # Wait for the face axis to be known before handing over control —
-        # starting a run on an unidentified mounting would put the island on
+        # Wait for the face axis to be known before handing over control.
+        # Starting a run on an unidentified mounting would put the island on
         # its edge for the first second.
         if not self.wrist.face_locked:
             return
@@ -214,7 +214,7 @@ class Game:
         gravity = C.gravity_at(self.depth)
 
         # Fixed-timestep integration. With a variable step, a frame that runs
-        # long integrates further and the ball behaves differently — which is
+        # long integrates further and the ball behaves differently, which is
         # felt as the controls going vague exactly when the game is busiest.
         fixed = 1.0 / C.PHYSICS_HZ
         self._physics_accum = min(self._physics_accum + dt, 0.25)
@@ -316,7 +316,7 @@ class Game:
         if self.wrist.take_flick():
             self.start_run()
 
-    # ── Drawing ────────────────────────────────────────────────────────────
+    # Drawing
 
     def _transform(self, origin=(0.0, 0.0, 0.0)) -> B.BoardTransform:
         if self.state in (PLAY, DESCEND, DYING):
@@ -444,7 +444,7 @@ class Game:
 
         self.sprite.queue(self.painter, self.camera, xf, ball, height, squash, happy, dying)
 
-    # ── Events ─────────────────────────────────────────────────────────────
+    # Events
 
     def handle_events(self) -> None:
         for event in pygame.event.get():

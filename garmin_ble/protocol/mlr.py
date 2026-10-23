@@ -9,10 +9,10 @@ The first byte routes the packet:
 
 Handles are assigned at runtime by the watch, so the host must ask for one per
 service (``REGISTER_ML_REQ``) and remember the mapping. ``CLOSE_ALL_REQ`` wipes
-any assignments left over from a previous session — including one belonging to
+any assignments left over from a previous session, including one belonging to
 a phone that just walked away.
 
-These functions are the whole story for that channel, in both directions: the
+These functions cover that channel in both directions: the
 host uses the ``request`` builders and the decoder, the simulator uses the
 ``response`` builders and the same decoder.
 """
@@ -72,7 +72,7 @@ def encode_rx(handle: int, payload: bytes) -> bytes:
     return bytes([handle]) + payload
 
 
-# ── decoded packet types ────────────────────────────────────────────────────
+# Decoded packet types
 
 
 @dataclass(frozen=True)
@@ -95,7 +95,7 @@ class RegisterMlResponse:
     """The watch's answer to a handle request.
 
     ``status`` is 0 on success; any other value is a refusal, which callers
-    must treat as such — the handle in a refused response is meaningless.
+    must treat as such. The handle in a refused response is meaningless.
     """
 
     service: int
@@ -125,7 +125,7 @@ def decode_packet(data: bytes) -> Decoded:
 
     if data[0] != CONTROL_HANDLE or len(data) < 2:
         # An unflagged, non-zero first byte is the watch addressing a handle
-        # directly — the form it must use for handles above MAX_FLAGGED_HANDLE.
+        # directly, the form it must use for handles above MAX_FLAGGED_HANDLE.
         return MlrPacket(handle=data[0], payload=data) if len(data) >= 2 else None
 
     msg_type = data[1]
@@ -139,7 +139,7 @@ def decode_packet(data: bytes) -> Decoded:
     return ControlMessage(type=msg_type)
 
 
-# ── builders: host side ─────────────────────────────────────────────────────
+# Builders: host side
 
 
 #
@@ -159,7 +159,7 @@ def build_register_ml_request(service_code: int) -> bytes:
     return struct.pack("<bqhb", RequestType.REGISTER_ML_REQ, CLIENT_ID, service_code, 0)
 
 
-# ── builders: watch side (used by the simulator and by tests) ───────────────
+# Builders: watch side (used by the simulator and by tests)
 
 
 def build_close_all_response() -> bytes:

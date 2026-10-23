@@ -1,4 +1,4 @@
-"""TILT — entry point.
+"""TILT entry point.
 
     python -m examples.tilt
 
@@ -75,8 +75,8 @@ async def main(seed: int | None, mute: bool, fullscreen: bool) -> None:
         pass
     except GarminBleError as exc:
         print(f"\n{exc}")
-        print("\nTip: your watch allows one BLE connection at a time — "
-              "disconnect it from your phone first.")
+        print("\nTip: your watch allows one BLE connection at a time. "
+              "Disconnect it from your phone first.")
         print("Run `python examples/scan.py` to see what is in range.")
     finally:
         watch_task.cancel()
@@ -86,7 +86,7 @@ async def main(seed: int | None, mute: bool, fullscreen: bool) -> None:
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
         prog="python -m examples.tilt",
-        description="TILT — roll a seed-sprite down an endless tower of "
+        description="TILT: roll a seed-sprite down an endless tower of "
                     "floating islands, steering with your wrist.",
     )
     parser.add_argument("--seed", type=int, default=None,

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Full Walkthrough — a guided tour of the garmin-ble API.
+"""Full walkthrough: a guided tour of the garmin-ble API.
 
 Usage:
     python examples/full_walkthrough_idealistic.py            # simulated watch
@@ -32,9 +32,7 @@ from garmin_ble import (
 )
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-#  1. Connecting
-# ─────────────────────────────────────────────────────────────────────────────
+# 1. Connecting
 
 def open_watch(real: bool):
     """Return the session to run the tour against."""
@@ -59,9 +57,7 @@ async def main(real: bool) -> None:
         await walkthrough(watch)
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-#  2. What did we actually connect to?
-# ─────────────────────────────────────────────────────────────────────────────
+# 2. What did we connect to?
 
 async def walkthrough(watch: Watch) -> None:
     print(f"\nConnected to {watch.info.name} ({watch.info.address})")
@@ -74,7 +70,7 @@ async def walkthrough(watch: Watch) -> None:
 
     # There is deliberately nothing here listing what the watch supports. The
     # protocol has no capability query, so any such list would be a guess.
-    # Asking is the only honest test: subscribe() raises ServiceUnavailable
+    # Asking is the only reliable test: subscribe() raises ServiceUnavailable
     # when the watch declines, stream_all() emits a MetricUnavailable event for
     # what it skips, and collect() marks it missing with supported=False.
 
@@ -85,18 +81,16 @@ async def walkthrough(watch: Watch) -> None:
     await debugging(watch)
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-#  3. Telemetry — subscription implies registration
-# ─────────────────────────────────────────────────────────────────────────────
+# 3. Telemetry: subscribing also registers the service
 
 async def stream_telemetry(watch: Watch) -> None:
     print("\n── telemetry ───────────────────────────────────────────")
 
-    # ---- 3a. Decorator form: typed, discoverable, one dataclass argument ----
+    # 3a. Decorator form. The handler gets one typed dataclass argument.
     #
     # `reading` is a `HeartRate`, not a bare tuple. `reading.bpm` autocompletes;
-    # `resting_bpm` is Optional because the watch genuinely omits it sometimes —
-    # that used to arrive as a silent 0.
+    # `resting_bpm` is Optional because the watch sometimes omits it. That
+    # used to arrive as a silent 0.
 
     shown = {"hr": 0, "accel": 0}  # this is a tour; don't flood the terminal
 
@@ -112,7 +106,7 @@ async def stream_telemetry(watch: Watch) -> None:
     @watch.on(metrics.ACCELEROMETER)
     def _(packet: metrics.AccelPacket) -> None:
         # Raw counts and g-units both available, instead of the caller dividing
-        # by a magic constant — the old examples disagreed on whether it was
+        # by a magic constant. The old examples disagreed on whether it was
         # 256 or 1024.
         shown["accel"] += 1
         if shown["accel"] <= 3:
@@ -121,7 +115,7 @@ async def stream_telemetry(watch: Watch) -> None:
 
     await asyncio.sleep(0.3)
 
-    # ---- 3b. Async-iterator form, when a callback is the wrong shape ----
+    # 3b. Async-iterator form, for when a callback is the wrong shape.
     #
     # Callbacks cannot await, be cancelled, compose, or apply backpressure. An
     # async iterator does all four and needs no tracker object to smuggle state
@@ -131,7 +125,7 @@ async def stream_telemetry(watch: Watch) -> None:
         print(f"  🧘 stress {reading.level}/100 ({reading.band})")
         break  # leaving the loop releases the subscription
 
-    # ---- 3c. Merged stream, for "give me everything" ----
+    # 3c. Merged stream of every metric.
     seen = set()
     async for sample in watch.stream_all(timeout=timedelta(seconds=2)):
         if sample.metric not in seen:
@@ -140,7 +134,7 @@ async def stream_telemetry(watch: Watch) -> None:
         if len(seen) >= 4:
             break
 
-    # ---- 3d. Collect-until-complete: the thing this walkthrough exists for ---
+    # 3d. Collect until every metric has reported once.
     print("\n  collecting one sample of every metric…")
     result = await watch.collect(
         Metric.ALL_TELEMETRY,
@@ -155,14 +149,12 @@ async def stream_telemetry(watch: Watch) -> None:
         for metric, reason in result.missing.items():
             print(f"    ⏳ {metric.name}: {reason}")
 
-    # ---- 3e. One-shot read, no subscription bookkeeping ----
+    # 3e. One-shot read, no subscription bookkeeping.
     hr = await watch.read(metrics.HEART_RATE, timeout=timedelta(seconds=10))
     print(f"\n  single reading: {hr.bpm} bpm")
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-#  4. Device queries — protobuf, but you don't have to know that
-# ─────────────────────────────────────────────────────────────────────────────
+# 4. Device queries (protobuf underneath, but you don't need to know that)
 
 async def device_queries(watch: Watch) -> None:
     print("\n── device ──────────────────────────────────────────────")
@@ -171,7 +163,7 @@ async def device_queries(watch: Watch) -> None:
     battery = await watch.battery()
     print(f"  🔋 {battery.percent}% ({battery.status})")
 
-    # The rest are optional: which protobuf services a watch actually answers
+    # The rest are optional: which protobuf services a watch answers
     # varies by model and firmware, and some need a paired-app authentication
     # this library does not perform. A request nobody answers raises
     # RequestTimeout rather than hanging forever or returning an empty result
@@ -189,9 +181,7 @@ async def device_queries(watch: Watch) -> None:
         print("  · find_my_watch: not answered by this watch")
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-#  5. Raw protobuf — still available, now correlated and awaitable
-# ─────────────────────────────────────────────────────────────────────────────
+# 5. Raw protobuf, with responses correlated to requests and awaitable
 
 
 async def protobuf_and_events(watch: Watch) -> None:
@@ -203,7 +193,7 @@ async def protobuf_and_events(watch: Watch) -> None:
 
     # `request` matches the response by request id and returns it. The old
     # `send_protobuf` was fire-and-forget and the reply surfaced on a global
-    # "protobuf" callback with no link back to what you asked for — so two
+    # "protobuf" callback with no link back to what you asked for, so two
     # in-flight requests were indistinguishable. The Smart envelope is derived
     # from the protobuf descriptors, so you pass the innermost message.
     response = await watch.request(
@@ -218,7 +208,7 @@ async def protobuf_and_events(watch: Watch) -> None:
 
     @watch.responds_to(device_status.RemoteDeviceBatteryStatusRequest)
     async def _(request):
-        print("  📱 watch asked for phone battery — replying 99%")
+        print("  📱 watch asked for phone battery, replying 99%")
         return device_status.RemoteDeviceBatteryStatusResponse(current_battery_level=99)
 
     # System events as typed objects rather than `(int, int)` positional args
@@ -248,12 +238,10 @@ async def protobuf_and_events(watch: Watch) -> None:
     try:
         await asyncio.wait_for(watcher, timeout=3.0)
     except asyncio.TimeoutError:
-        print("  (quiet — no further events in 3s)")
+        print("  (quiet: no further events in 3s)")
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-#  6. Errors that say what went wrong
-# ─────────────────────────────────────────────────────────────────────────────
+# 6. Errors that say what went wrong
 
 async def error_handling() -> None:
     """Show a real failure, and describe the ones we will not provoke.
@@ -264,38 +252,36 @@ async def error_handling() -> None:
     """
     print("\n── errors ──────────────────────────────────────────────")
 
-    # A genuine refusal, provoked on a model that lacks the sensor. The Venu 3
-    # profile has no SpO2, and asking is the only way to find that out — the
-    # protocol has no capability query.
+    # A real refusal, provoked on a model that lacks the sensor. The Venu 3
+    # profile has no SpO2, and asking is the only way to find that out because
+    # the protocol has no capability query.
     async with Watch.simulated(profile="venu3") as watch:
         try:
             await watch.subscribe(metrics.SPO2)
         except ServiceUnavailable as exc:
-            print(f"  ServiceUnavailable: {exc.metric.name} — {exc.reason}")
+            print(f"  ServiceUnavailable ({exc.metric.name}): {exc.reason}")
 
     # The two connection failures, described rather than provoked:
     #
-    #   WatchNotFound   — no match in range. `exc.candidates` lists every device
+    #   WatchNotFound:  no match in range. `exc.candidates` lists every device
     #                     the scan did see, which is usually what you need: the
     #                     watch is normally there under a name the filter missed,
     #                     or absent because it is paired to a phone.
     #
-    #   HandshakeError  — the link came up but the protocol did not.
+    #   HandshakeError: the link came up but the protocol did not.
     #                     `exc.stage` is characteristic_discovery (not a Garmin),
     #                     close_all (busy with a phone), or register_ml.
     print("  WatchNotFound / HandshakeError: see the source of this function")
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-#  7. Debugging affordances
-# ─────────────────────────────────────────────────────────────────────────────
+# 7. Debugging tools
 
 async def debugging(watch: Watch) -> None:
     print("\n── diagnostics ─────────────────────────────────────────")
 
     # Record every frame in both directions to a replayable capture. Attach one
-    # to a bug report and a maintainer reproduces it with `Watch.replay(path)` —
-    # no hardware, no wrist.
+    # to a bug report and a maintainer can reproduce it with
+    # `Watch.replay(path)`, without the hardware.
     capture = Path(tempfile.gettempdir()) / "garmin-ble-session.gble"
     watch.record(capture)
 

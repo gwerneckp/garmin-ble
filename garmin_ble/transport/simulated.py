@@ -3,10 +3,10 @@
 The simulator is a full peer, not a stub: it negotiates MLR handles, refuses
 services its profile does not support, COBS-frames its GFDI traffic, answers
 protobuf requests, and asks the host for the time. Because it sits at the
-transport seam, everything above it — handshake, subscriptions, correlation,
-reconnection — is the same code that runs against a real watch.
+transport seam, everything above it (handshake, subscriptions, correlation,
+reconnection) is the same code that runs against a real watch.
 
-That buys three things the library had no way to offer before:
+This gives:
 
 * examples that run with no hardware, so the walkthrough works in CI;
 * tests that exercise the protocol rather than a mocked ``BleakClient``;
@@ -38,7 +38,7 @@ log = get_logger(__name__)
 class WatchProfile:
     """What a simulated model can do.
 
-    ``supports`` is the whole point: a profile that omits a metric makes
+    ``supports`` is the important field. A profile that omits a metric makes
     ``subscribe`` raise :class:`~garmin_ble.errors.ServiceUnavailable`, exactly
     as a real watch that declines the registration does.
     """
@@ -117,7 +117,7 @@ def get_profile(name: str) -> WatchProfile:
 class _Vitals:
     """Plausible, smoothly-varying telemetry.
 
-    Seeded, so a simulated session is reproducible — which matters when a test
+    Seeded, so a simulated session is reproducible. That matters when a test
     asserts on values rather than merely on arrival.
     """
 
@@ -211,7 +211,7 @@ class SimulatedTransport(Transport):
         self._outbox: "asyncio.Queue[bytes]" = asyncio.Queue()
         self._tasks: "list[asyncio.Task]" = []
 
-    # ── transport contract ──────────────────────────────────────────────────
+    # Transport contract
 
     async def open(self) -> LinkInfo:
         self._open = True
@@ -247,7 +247,7 @@ class SimulatedTransport(Transport):
             raise ConnectionFailed("write attempted on a closed simulated link")
         self._handle_host_packet(data)
 
-    # ── plumbing ────────────────────────────────────────────────────────────
+    # Plumbing
 
     def _spawn(self, coro) -> None:
         task = asyncio.ensure_future(coro)
@@ -270,7 +270,7 @@ class SimulatedTransport(Transport):
         except asyncio.CancelledError:
             pass
 
-    # ── host -> watch ───────────────────────────────────────────────────────
+    # Host -> watch
 
     def _handle_host_packet(self, data: bytes) -> None:
         if not data:
@@ -348,7 +348,7 @@ class SimulatedTransport(Transport):
                 return service
         return None
 
-    # ── telemetry generation ────────────────────────────────────────────────
+    # Telemetry generation
 
     async def _stream_metric(self, service: int) -> None:
         from ..metrics import by_service
@@ -367,7 +367,7 @@ class SimulatedTransport(Transport):
         except asyncio.CancelledError:
             pass
 
-    # ── GFDI ────────────────────────────────────────────────────────────────
+    # GFDI
 
     def _send_gfdi(self, frame: bytes) -> None:
         handle = self._handles.get(int(GarminService.GFDI))
@@ -465,7 +465,7 @@ class SimulatedTransport(Transport):
             )
         return None
 
-    # ── watch-initiated traffic ─────────────────────────────────────────────
+    # Watch-initiated traffic
 
     async def _ask_for_time_later(self) -> None:
         """Real watches ask the host for the time shortly after connecting."""
@@ -496,13 +496,13 @@ class SimulatedTransport(Transport):
         except asyncio.CancelledError:
             pass
 
-    # ── test affordances ────────────────────────────────────────────────────
+    # Test affordances
 
     def silence(self) -> None:
         """Keep the link up but stop emitting telemetry.
 
         Models the very common real case of a metric whose service is
-        registered and started but which has nothing new to report — a resting
+        registered and started but which has nothing new to report. A resting
         wrist produces no steps, no intensity minutes, and no body battery
         change for minutes at a time.
         """

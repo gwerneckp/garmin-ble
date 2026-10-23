@@ -7,10 +7,10 @@ import pytest
 from garmin_ble.protocol.cobs import CobsCoDec
 
 
-# ── Round-trip tests ─────────────────────────────────────────────
+# Round-trip tests
 
 class TestCobsRoundTrip:
-    """Encode data, then decode it — must produce the original."""
+    """Encode data, then decode it. Must produce the original."""
 
     @pytest.mark.parametrize("data", [
         b"\x00",
@@ -49,7 +49,7 @@ class TestCobsRoundTrip:
             assert decoded == msg
 
 
-# ── Encoding structure ───────────────────────────────────────────
+# Encoding structure
 
 class TestCobsEncoding:
     def test_starts_and_ends_with_zero(self):
@@ -90,7 +90,7 @@ class TestCobsEncoding:
         assert encoded[-1] == 0x00
 
 
-# ── Edge cases ───────────────────────────────────────────────────
+# Edge cases
 
 class TestCobsEdgeCases:
     def test_decode_incomplete_frame(self):

@@ -1,4 +1,4 @@
-"""garmin_ble — talk to a Garmin watch over its proprietary BLE protocol.
+"""garmin_ble: talk to a Garmin watch over its proprietary BLE protocol.
 
 Stream live telemetry, read device state, and drive Garmin's GFDI protobufs
 directly over Bluetooth Low Energy. No cloud, no phone, no Garmin Connect.
@@ -13,7 +13,7 @@ directly over Bluetooth Low Energy. No cloud, no phone, no Garmin Connect.
 
     asyncio.run(main())
 
-Develop without hardware by swapping the factory — ``Watch.simulated()`` runs an
+Develop without hardware by swapping the factory. ``Watch.simulated()`` runs an
 in-process watch that speaks the same protocol, and ``Watch.replay(path)``
 replays a recorded session.
 """

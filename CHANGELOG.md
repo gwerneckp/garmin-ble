@@ -6,6 +6,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 This project is pre-1.0: the public API may still change between minor
 versions, and breaking changes are called out explicitly.
 
+## [Unreleased]
+
 ## [0.3.2] - 2026-08-01
 
 A sweep for the same class of defect as `Watch.capabilities` in 0.3.1:
@@ -50,9 +52,9 @@ surfaces that look informative but cannot be.
   capability query. Answering "everything" when the truth is "I cannot know"
   invited callers to trust it and then fail at `subscribe()` anyway.
 
-  There is no reliable way to probe for support either — a watch that lacks a
-  sensor may accept the service registration and simply never send data — so
-  asking is the only honest test. Migrate by handling the refusal where it
+  There is no reliable way to probe for support either. A watch that lacks a
+  sensor may accept the service registration and never send data, so
+  subscribing is the only real test. Migrate by handling the refusal where it
   happens:
 
   ```python
@@ -93,7 +95,7 @@ Replaced `GarminClient` with the `Watch` API.
 
 ### Added
 
-- **`Watch`**, an async context manager owning the whole session — connecting,
+- **`Watch`**, an async context manager that owns the whole session: connecting,
   the GFDI handshake, the keep-alive heartbeat, reconnection, and teardown.
 - **Typed metrics.** Readings are frozen dataclasses with named fields.
   Subscribing to a metric registers and starts its service, so the service

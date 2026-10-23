@@ -93,7 +93,7 @@ def draw_island(painter: R.Painter, camera: R.Camera, island: W.Island,
     g = C.GRID
     edge = g - 0.5
 
-    # ── Slab sides and underside ───────────────────────────────────────────
+    # Slab sides and underside
     corners_top = [
         xf(-0.5, -0.5), xf(edge, -0.5), xf(edge, edge), xf(-0.5, edge),
     ]
@@ -114,7 +114,7 @@ def draw_island(painter: R.Painter, camera: R.Camera, island: W.Island,
             C.DIRT, outline=C.OUTLINE, width=C.px(3),
         )
 
-    # ── Top surface ────────────────────────────────────────────────────────
+    # Top surface
     for cy in range(g):
         for cx in range(g):
             cell = island.cells[cy][cx]
@@ -261,7 +261,7 @@ def _draw_vines(painter: R.Painter, camera: R.Camera, island: W.Island,
 
             painter.custom(pt_depth, paint_joint)
 
-        # Flower head — the part that actually shoves you.
+        # Flower head: the part that actually shoves you.
         head_world = xf(hx, hy, 34.0)
         fx, fy, fdepth = camera.project(head_world)
         scale = C.CAM_FOV / fdepth

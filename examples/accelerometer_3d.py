@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-"""3D Watch Orientation Demo (Pygame) - Shaded Edition
+"""3D watch orientation demo (Pygame, shaded).
 
-Parses the true 14-byte accelerometer payload and uses it to
-rotate a 3D solid cylinder representing the watch face in realtime,
-complete with backface culling, Z-sorting, and directional lighting.
+Parses the 14-byte accelerometer payload and uses it to rotate a solid 3D
+cylinder representing the watch face in real time. Rendering uses backface
+culling, Z-sorting and directional lighting.
 """
 
 import argparse
@@ -17,7 +17,7 @@ from garmin_ble import GarminBleError, Watch, metrics
 from garmin_ble.logging import configure
 
 
-# ── 3D Math ────────────────────────────────────────────────────────────────
+# 3D math
 
 def rotate_3d(point, pitch, roll):
     x, y, z = point
@@ -57,7 +57,7 @@ def cross(v1, v2):
 def sub(v1, v2):
     return (v1[0]-v2[0], v1[1]-v2[1], v1[2]-v2[2])
 
-# ── Pygame App ─────────────────────────────────────────────────────────────
+# Pygame app
 
 class Watch3DApp:
     def __init__(self):
@@ -188,8 +188,8 @@ class Watch3DApp:
         """Average one burst of samples into a gravity vector.
 
         `sample.g` is already in g-units, so there is no scale constant to get
-        wrong here — which the old examples did, disagreeing on whether it was
-        256 or 1024 counts per g.
+        wrong here. The old examples got it wrong, disagreeing on whether it
+        was 256 or 1024 counts per g.
         """
         if not packet.samples:
             return
@@ -297,7 +297,7 @@ async def main(simulate: bool):
     session = Watch.simulated() if simulate else Watch.discover()
     try:
         # The session owns connecting, the handshake, the heartbeat, and
-        # teardown — including when pygame raises or you close the window.
+        # teardown, including when pygame raises or you close the window.
         async with session as watch:
             await app.run(watch)
     except (asyncio.CancelledError, KeyboardInterrupt):

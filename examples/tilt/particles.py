@@ -1,7 +1,7 @@
 """Bubbles, sparkles, pollen and dust.
 
 One flat list of particles with a kind tag, drawn in screen space. Nothing
-here is simulated in 3D — the depth is faked with size and drift speed, which
+here is simulated in 3D. The depth is faked with size and drift speed, which
 is both cheaper and easier to art-direct than real perspective would be.
 """
 
@@ -58,7 +58,7 @@ class Particles:
         self.items: List[Particle] = []
         self._ambient_timer = 0.0
 
-    # ── Emitters ───────────────────────────────────────────────────────────
+    # Emitters
 
     def ambient(self, dt: float, intensity: float = 1.0) -> None:
         """The constant drift of bubbles and pollen rising past the camera."""
@@ -149,7 +149,7 @@ class Particles:
         self.burst(pos, 16, DROPLET, (198, 240, 255), 260.0)
         self.burst(pos, 10, SPARKLE, (255, 246, 190), 190.0)
 
-    # ── Simulation ─────────────────────────────────────────────────────────
+    # Simulation
 
     def update(self, dt: float) -> None:
         alive: List[Particle] = []
@@ -236,8 +236,8 @@ class Clouds:
     """Parallax cloud banks under the islands.
 
     Each bank is rendered once into its own small surface and then only ever
-    blitted. Their shape never changes, so redrawing the puffs every frame —
-    and compositing them through a full-screen alpha layer — was paying a
+    blitted. Their shape never changes, so redrawing the puffs every frame
+    (and compositing them through a full-screen alpha layer) was paying a
     megabyte of memory traffic for a picture that was already decided.
     """
 

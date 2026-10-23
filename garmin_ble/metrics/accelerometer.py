@@ -6,8 +6,8 @@ Wire format (MLR payload)::
 
     [timestamp (uint16 LE), 14-byte packed sample block]
 
-The sample block holds nine signed 12-bit values — three ``(x, y, z)`` triples
-— packed two-per-three-bytes::
+The sample block holds nine signed 12-bit values (three ``(x, y, z)`` triples),
+packed two-per-three-bytes::
 
     byte 0        byte 1        byte 2
     [ v0 lo 8 ]  [v1 lo 4|v0 hi 4]  [ v1 hi 8 ]

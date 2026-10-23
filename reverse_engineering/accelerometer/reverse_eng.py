@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Raw accelerometer data stream — record & label sessions.
+"""Record and label sessions of the raw accelerometer data stream.
 
 Known:
   - Bytes 0-1: 16-bit LE unsigned timestamp (ms), ~115ms between packets
@@ -10,7 +10,7 @@ Flow:
   2. Press ENTER to start a 10-second recording
   3. After recording, type a label (e.g. "shelf_faceup", "floor_tilted")
   4. Data is saved to rev_eng/<label>_<timestamp>.json
-  5. Loop — press ENTER again for another recording, Ctrl+C to quit
+  5. Repeat: press ENTER again for another recording, Ctrl+C to quit
 
 Usage:
   python3 examples/reverse_eng.py
@@ -29,7 +29,7 @@ from garmin_ble.logging import configure
 
 RECORD_DURATION = 10  # seconds
 
-# ── State ─────────────────────────────────────────────────────────────────
+# State
 
 recording = False
 buffer = []

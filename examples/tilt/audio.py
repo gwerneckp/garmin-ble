@@ -1,6 +1,6 @@
 """Everything you hear, synthesised at startup into raw sample buffers.
 
-No asset files and no numpy — ``array('h')`` plus ``pygame.mixer.Sound`` is
+No asset files and no numpy: ``array('h')`` plus ``pygame.mixer.Sound`` is
 enough. The music is a written score played by a step sequencer, not random
 notes: an original folk-minor tune in the idiom Tetris drew on, whose tempo
 and arrangement thicken as you descend.
@@ -22,7 +22,7 @@ from . import config as C
 
 RATE = C.AUDIO_RATE
 
-#: "Korobeiniki" — the Russian folk song from 1861 that everyone knows as the
+#: "Korobeiniki", the Russian folk song from 1861 that everyone knows as the
 #: Tetris theme. The melody is public domain; what is owned is Nintendo's
 #: particular Game Boy *arrangement*, so this plays the traditional tune with
 #: its own accompaniment and timbres rather than reproducing that.
@@ -143,7 +143,7 @@ def _tone(freq: float, duration: float, *, harmonics: Sequence[float] = (1.0, 0.
 
 def _noise(duration: float, rng: random.Random, *, cutoff: float = 0.25,
            attack: float = 0.02, release: float = 0.3) -> List[float]:
-    """Low-passed noise via a one-pole filter — cheap and warm enough."""
+    """Low-passed noise via a one-pole filter. Cheap and warm enough."""
     n = int(RATE * duration)
     out = [0.0] * n
     prev = 0.0
@@ -182,7 +182,7 @@ class Audio:
         self.enabled = True
         self._build()
 
-    # ── Bank ───────────────────────────────────────────────────────────────
+    # Bank
 
     def _build(self) -> None:
         rng = self.rng
@@ -249,7 +249,7 @@ class Audio:
         if snd:
             self.sounds["pop"] = snd
 
-    # ── Playback ───────────────────────────────────────────────────────────
+    # Playback
 
     def play(self, name: str, volume: float = 1.0) -> None:
         if not self.enabled:
