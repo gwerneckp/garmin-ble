@@ -6,8 +6,8 @@ them: :class:`~garmin_ble.transport.ble.BleTransport` for a real radio,
 watch, and :class:`~garmin_ble.transport.replay.ReplayTransport` for a recorded
 session.
 
-``BleTransport`` is imported lazily so that importing this package — and
-therefore importing :mod:`garmin_ble` — does not require bleak to be importable
+``BleTransport`` is imported lazily so that importing this package (and
+therefore :mod:`garmin_ble`) does not require bleak to be importable
 on a machine with no Bluetooth stack.
 """
 

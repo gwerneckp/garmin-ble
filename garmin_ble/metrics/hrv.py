@@ -7,7 +7,7 @@ Wire format (MLR payload)::
     [rr (uint16 LE), ...]
 
 One packet carries one beat-to-beat interval. Aggregating these into an HRV
-score (RMSSD, SDNN, …) is the caller's job — the watch does not send one.
+score (RMSSD, SDNN, …) is the caller's job; the watch does not send one.
 """
 
 from __future__ import annotations

@@ -2,7 +2,7 @@
 
 The CRC uses a custom 16-entry constant table (not the standard CRC-16-CCITT).
 These expected values are computed by the actual algorithm to serve as
-regression tests — they are NOT from an external reference.
+regression tests. They are NOT from an external reference.
 """
 import struct
 import pytest
@@ -22,7 +22,7 @@ class TestCrcConstants:
 
 
 class TestCrcComputation:
-    """Verify CRC results — these are regression tests against known values."""
+    """Verify CRC results against known values (regression tests)."""
 
     @pytest.mark.parametrize("data, expected", [
         (b"", 0x0000),

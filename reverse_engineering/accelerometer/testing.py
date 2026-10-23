@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Timestamp identification — track which values increment like a clock.
+"""Timestamp identification: track which values increment like a clock.
 
 Shows 16-bit LE pairs with delta tracking on the first pair (suspected timestamp).
 Also shows the other 6 values as both unsigned and signed 16-bit.

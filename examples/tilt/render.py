@@ -2,8 +2,8 @@
 
 There is no mesh format here on purpose. Each system (board, hazards, sprite)
 knows its own geometry and emits polygons into a :class:`Painter`, which sorts
-everything back-to-front and draws it. That keeps the renderer to one idea —
-*transform, shade, sort, draw* — and lets the board punch holes in itself
+everything back-to-front and draws it. That keeps the renderer to one idea
+(*transform, shade, sort, draw*) and lets the board punch holes in itself
 without fighting a scene graph.
 """
 
@@ -25,7 +25,7 @@ NEAR_PLANE = 140.0
 MAX_SCREEN_RADIUS = 1600.0
 
 
-# ── Vector helpers ─────────────────────────────────────────────────────────
+# Vector helpers
 
 def normalize(v: Vec3) -> Vec3:
     m = math.sqrt(v[0] * v[0] + v[1] * v[1] + v[2] * v[2])
@@ -124,12 +124,12 @@ def mix(a: Sequence[int], b: Sequence[int], t: float) -> Tuple[int, int, int]:
     )
 
 
-# ── Camera ─────────────────────────────────────────────────────────────────
+# Camera
 
 class Camera:
     """A fixed 3/4 view that leans gently against the board.
 
-    World space is Y-up. The camera orbits by pitch only — there is no yaw
+    World space is Y-up. The camera orbits by pitch only. There is no yaw
     control, because the player already has two axes and a third would make
     the board unreadable.
     """
@@ -178,7 +178,7 @@ class Camera:
         x, y = x * cr - y * sr, x * sr + y * cr
 
         # Camera pitch: tip the world forward so we look down on it. The sign
-        # matters — with it reversed, raising a point *increases* its depth,
+        # matters: with it reversed, raising a point *increases* its depth,
         # and anything standing on the board sorts behind the board.
         cp, sp = math.cos(self.pitch), math.sin(self.pitch)
         y, z = y * cp + z * sp, -y * sp + z * cp
@@ -200,7 +200,7 @@ class Camera:
         return C.CAM_FOV / depth
 
 
-# ── Painter ────────────────────────────────────────────────────────────────
+# Painter
 
 class Painter:
     """Collects draw calls, then flushes them back-to-front.
@@ -294,13 +294,13 @@ class Painter:
         self._items.clear()
 
 
-# ── Sky ────────────────────────────────────────────────────────────────────
+# Sky
 
 def icosphere(subdivisions: int = 1):
     """A unit sphere as (vertices, faces), built by subdividing an icosahedron.
 
     Icosahedral faces are near-equilateral and evenly sized, so cel shading
-    bands across them cleanly — a lat/long sphere would bunch triangles at the
+    bands across them cleanly. A lat/long sphere would bunch triangles at the
     poles and make the band edges visibly wobble as the ball rolls.
     """
     t = (1.0 + math.sqrt(5.0)) / 2.0
@@ -383,7 +383,7 @@ def orthonormalize(m):
 
 def make_sky(width: int, height: int) -> pygame.Surface:
     """Vertical gradient plus a soft sun, baked once."""
-    """A vertical gradient, baked once — cyan overhead, warm at the horizon."""
+    """A vertical gradient, baked once: cyan overhead, warm at the horizon."""
     sky = pygame.Surface((1, height))
     for y in range(height):
         t = y / max(1, height - 1)
@@ -440,7 +440,7 @@ def cel_sphere(
     ellipse(shift(base, shade[1][1]), -rx * 0.10, -ry * 0.12, 0.92, 0.92)
     ellipse(shift(base, shade[0][1]), -rx * 0.20, -ry * 0.24, 0.70, 0.70)
 
-    # Specular pip — the single brightest thing on the sprite.
+    # Specular pip: the single brightest thing on the sprite.
     ellipse(shift(base, 1.28), -rx * 0.34, -ry * 0.42, 0.24, 0.20)
 
     rect = pygame.Rect(0, 0, int(rx * 2), int(ry * 2))
@@ -469,7 +469,7 @@ _vignette: "pygame.Surface | None" = None
 
 
 def vignette(surface: pygame.Surface) -> None:
-    """Darken the corners a little. Cached — it never changes."""
+    """Darken the corners a little. Cached, since it never changes."""
     global _vignette
     if C.VIGNETTE <= 0:
         return

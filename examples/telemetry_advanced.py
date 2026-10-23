@@ -25,7 +25,7 @@ async def show_events(watch: Watch) -> None:
     """Print link and protocol events as they happen."""
     async for event in watch.events():
         if isinstance(event, events.Disconnected):
-            print(f"\n⚠️  link dropped: {event.reason} — reconnecting…")
+            print(f"\n⚠️  link dropped: {event.reason}, reconnecting…")
         elif isinstance(event, events.Reconnected):
             print(f"✅ back after {event.attempts} attempt(s), "
                   f"{event.restored} subscription(s) restored\n")
@@ -55,7 +55,7 @@ async def main(simulate: bool) -> None:
     )
 
     async with session as watch:
-        print("🚀 Garmin Advanced Feature Showcase")
+        print("🚀 Garmin advanced features demo")
         print("   - One merged telemetry stream")
         print("   - Automatic reconnection with subscription restore")
         print("   - Typed link events")
@@ -71,8 +71,8 @@ async def main(simulate: bool) -> None:
         try:
             # `stream_all()` with no arguments takes everything this watch
             # supports and interleaves it in arrival order. A metric the watch
-            # refuses is skipped with a note rather than aborting the run —
-            # which is why ServiceUnavailable is worth catching by name.
+            # refuses is skipped with a note rather than aborting the run.
+            # That is why ServiceUnavailable is worth catching by name.
             async for reading in watch.stream_all():
                 print(f"  {reading.metric.name:<14} {reading}")
         except ServiceUnavailable as exc:
@@ -89,6 +89,6 @@ if __name__ == "__main__":
     try:
         asyncio.run(main(args.simulate))
     except KeyboardInterrupt:
-        print("\nStopping showcase...")
+        print("\nStopping...")
     except GarminBleError as exc:
         print(f"\n{exc}")

@@ -43,8 +43,8 @@ class WatchEvent:
 class DeviceIdentified(WatchEvent):
     """The watch reported its real model and firmware.
 
-    Arrives shortly after connecting, and upgrades ``watch.info`` in place —
-    before it, ``info.model`` is only the advert name and ``info.firmware`` is
+    Arrives shortly after connecting, and upgrades ``watch.info`` in place.
+    Before it, ``info.model`` is only the advert name and ``info.firmware`` is
     unknown.
     """
 
@@ -59,7 +59,7 @@ class Disconnected(WatchEvent):
     """The BLE link dropped.
 
     ``expected`` distinguishes a clean shutdown from a link the watch or the OS
-    tore down underneath us — the latter is what triggers reconnection.
+    tore down underneath us. Only the latter triggers reconnection.
     """
 
     reason: str = "unknown"
@@ -97,7 +97,7 @@ class ServiceRegistered(WatchEvent):
 class MetricUnavailable(WatchEvent):
     """A metric was asked for and the watch declined it.
 
-    Emitted where a refusal would otherwise be swallowed — chiefly
+    Emitted where a refusal would otherwise be swallowed, chiefly
     :meth:`~garmin_ble.watch.Watch.stream_all`, which skips what it cannot get
     and keeps going. Callers that need to know what they are not receiving
     should watch for this rather than scrape the log.

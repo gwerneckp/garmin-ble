@@ -1,7 +1,7 @@
 """MLR framing and the control channel.
 
-The host and the watch frame the same channel differently — the host writes a
-bare handle byte, the watch sets the MLR flag — and getting that backwards
+The host and the watch frame the same channel differently: the host writes a
+bare handle byte, the watch sets the MLR flag. Getting that backwards
 produces a handshake that silently never completes. These tests pin both
 directions.
 """

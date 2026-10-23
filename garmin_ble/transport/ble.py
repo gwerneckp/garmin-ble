@@ -1,7 +1,7 @@
 """Real BLE transport, over bleak.
 
 This is the only module in the library that imports bleak. Everything bleak
-exposes — ``BleakClient``, ``mtu_size``, GATT characteristic objects — stops
+exposes (``BleakClient``, ``mtu_size``, GATT characteristic objects) stops
 here rather than leaking into the public API, which is why ``watch.info.mtu``
 exists instead of callers reaching for ``client.client.mtu_size``.
 """
@@ -74,7 +74,7 @@ class BleTransport(Transport):
         self._name: Optional[str] = None
         self._closing = False
 
-    # ── discovery ───────────────────────────────────────────────────────────
+    # Discovery
 
     async def _scan(self) -> "tuple[str, Optional[str]]":
         """Find one matching device, or raise :class:`WatchNotFound`."""
@@ -105,7 +105,7 @@ class BleTransport(Transport):
 
         return match
 
-    # ── transport contract ──────────────────────────────────────────────────
+    # Transport contract
 
     async def open(self) -> LinkInfo:
         self._closing = False
@@ -179,7 +179,7 @@ class BleTransport(Transport):
     def is_open(self) -> bool:
         return self._client is not None and self._client.is_connected
 
-    # ── bleak callbacks ─────────────────────────────────────────────────────
+    # Bleak callbacks
 
     async def _on_bleak_notify(self, _sender: object, data: bytearray) -> None:
         await self._deliver(bytes(data))

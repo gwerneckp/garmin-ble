@@ -30,7 +30,7 @@ class Reading:
     ``HeartRate()`` with no arguments legal. Instead ``at`` is kept off the
     field list and stamped in ``__post_init__``.
 
-    ``at`` is arrival time, not sensor time — the Garmin real-time protocol does
+    ``at`` is arrival time, not sensor time. The Garmin real-time protocol does
     not timestamp most telemetry.
 
     A subclass that needs its own ``__post_init__`` must call ``super()``'s.
@@ -62,7 +62,7 @@ R = TypeVar("R", bound=Reading)
 class Metric(Generic[R]):
     """One kind of telemetry: its service code, its reading type, its parser.
 
-    Metrics are singletons — compare and hash by ``name``, so they work as dict
+    Metrics are singletons. They compare and hash by ``name``, so they work as dict
     keys and set members. Never construct one directly outside this package;
     use the constants in :mod:`garmin_ble.metrics`.
     """
@@ -103,8 +103,8 @@ def register(
     passing anything around.
 
     Requiring *encode* alongside *parse* keeps the two halves of each wire
-    format in one file and makes every parser round-trippable — which is what
-    the simulator and the parser tests are built on.
+    format in one file and makes every parser round-trippable. The simulator
+    and the parser tests depend on that.
     """
     metric: Metric[R] = Metric(
         name=name,

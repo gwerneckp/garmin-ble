@@ -4,7 +4,7 @@ The simulated transport speaks the real protocol, so tests drive a `Watch`
 end-to-end against real framing and routing rather than against a mock that
 merely records calls.
 
-`mock_ble` and `mock_scan` are for the cases that genuinely need the
+`mock_ble` and `mock_scan` are for the cases that need the
 bleak-specific transport: characteristic discovery, MTU, and scan filtering.
 """
 
@@ -15,7 +15,7 @@ from garmin_ble import Watch
 from garmin_ble.constants import GARMIN_BASE_UUID
 
 
-# ── simulated watch ──────────────────────────────────────────────────────────
+# Simulated watch
 
 
 @pytest.fixture
@@ -40,7 +40,7 @@ async def limited_watch():
         await session.aclose()
 
 
-# ── bleak doubles, for the BLE transport only ────────────────────────────────
+# Bleak doubles, for the BLE transport only
 
 
 def make_gatt_service(start: int = 0x2810, count: int = 5) -> MagicMock:

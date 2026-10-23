@@ -1,8 +1,8 @@
 """A small live watch model in the corner, for visualisation.
 
 The geometry, the pitch/roll derivation, the backface culling, the Z-sorting
-and the shading are all lifted from ``examples/accelerometer_3d.py`` unchanged
-— only the size and the screen position are parameterised. It is deliberately
+and the shading are all lifted from ``examples/accelerometer_3d.py`` unchanged;
+only the size and the screen position are parameterised. It is deliberately
 *not* wired to the game's corrected gravity: it draws the raw vector exactly as
 that example would, so it stays an honest reference for what the watch is
 actually reporting rather than a second view of the same correction.
@@ -18,7 +18,7 @@ import pygame
 from . import config as C
 
 
-# ── 3D Math (from accelerometer_3d.py) ─────────────────────────────────────
+# 3D Math (from accelerometer_3d.py)
 
 def rotate_3d(point, pitch, roll):
     x, y, z = point
@@ -63,7 +63,7 @@ def sub(v1, v2):
     return (v1[0] - v2[0], v1[1] - v2[1], v1[2] - v2[2])
 
 
-# ── The model ──────────────────────────────────────────────────────────────
+# The model
 
 class WatchModel:
     """A shaded cylinder that mirrors the watch's real orientation."""
@@ -160,7 +160,7 @@ class WatchModel:
         self.vertices.append((8 * s, radius_screen + 2 * s, thickness + s))
         self.faces.append(((255, 50, 50), 2, [idx_12_tip, idx_12_l, idx_12_r]))
 
-    # ── Drawing ────────────────────────────────────────────────────────────
+    # Drawing
 
     def draw(self, surface: pygame.Surface, center: Tuple[float, float],
              gravity: Sequence[float]) -> Tuple[float, float]:

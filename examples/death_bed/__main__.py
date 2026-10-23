@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
-"""TILT/Garmin BLE — Death Bed Telemetry Monitor.
+"""TILT/Garmin BLE: Death Bed telemetry monitor.
 
-A clinical-style patient monitor displaying real-time waveforms and metrics 
-directly streamed from a Garmin BLE watch. Shows live ECG and Pleth waves synced 
+A clinical-style patient monitor that displays real-time waveforms and metrics
+streamed from a Garmin BLE watch. Shows live ECG and Pleth waves synced 
 to your actual heart rate, a respiration wave synced to your breathing rate, 
 and raw 3-axis accelerometer traces.
 """
@@ -31,7 +31,7 @@ except ImportError:
 from garmin_ble import GarminBleError, Watch, metrics, events
 from garmin_ble.logging import configure
 
-# ── Colors & Aesthetics (Clinical Palette) ────────────────────────────────
+# Colors (clinical palette)
 
 BG_COLOR = (0, 0, 0)             # Pure black CRT background
 GRID_COLOR = (12, 20, 16)        # Clinical dark green faint grid lines
@@ -51,7 +51,7 @@ ACC_Z_COLOR = (230, 126, 34)     # Orange
 TEXT_MUTED = (120, 140, 150)
 ALERT_BG_YELLOW = (200, 160, 0)
 
-# ── Dynamic Beep Tone Generator ──────────────────────────────────────────
+# Beep tone generator
 
 def create_beep(frequency: float = 620.0, duration: float = 0.12, sample_rate: int = 22050) -> Optional[pygame.mixer.Sound]:
     if not HAS_NUMPY:
@@ -74,7 +74,7 @@ def create_beep(frequency: float = 620.0, duration: float = 0.12, sample_rate: i
     except Exception:
         return None
 
-# ── Waveform Simulators ───────────────────────────────────────────────────
+# Waveform simulators
 
 class ECGWave:
     """Generates standard ECG wave (P-QRS-T complex) dynamically."""
@@ -140,7 +140,7 @@ class RespWave:
         val += random.uniform(-0.02, 0.02)
         return val
 
-# ── App Classes ───────────────────────────────────────────────────────────
+# App classes
 
 class TelemetryState:
     """Consolidated metrics from the watch or simulation."""
@@ -373,7 +373,7 @@ class DeathBedApp:
         lbl = self.fonts["mono_bold"].render(patient_text, True, (255, 255, 255))
         self.screen.blit(lbl, (15, 12))
 
-        # Center Alert Banner (Real clinical style)
+        # Center alert banner, styled like a real monitor
         alert_flash = (int(time.perf_counter() * 2.0) % 2) == 0
 
         if not active:
@@ -610,7 +610,7 @@ class DeathBedApp:
         self.state.stress_level = reading.level
 
 
-# ── Watch Connection Task ──────────────────────────────────────────────────
+# Watch connection task
 
 async def watch_connection_loop(app: DeathBedApp) -> None:
     while app.running:
@@ -636,7 +636,7 @@ async def watch_connection_loop(app: DeathBedApp) -> None:
                 watch.on(metrics.BODY_BATTERY)(app.on_body_battery)
                 watch.on(metrics.STRESS)(app.on_stress)
                 
-                # We can subscribe to additional helpful stats like steps/HRV!
+                # Extra stats: HRV and steps.
                 @watch.on(metrics.HRV)
                 def _(reading: metrics.Hrv) -> None:
                     app.state.hrv_rr_ms = reading.rr_ms
@@ -661,7 +661,7 @@ async def watch_connection_loop(app: DeathBedApp) -> None:
             await asyncio.sleep(5.0)
 
 
-# ── Entry Point ───────────────────────────────────────────────────────────
+# Entry point
 
 async def run_gui(app: DeathBedApp) -> None:
     while app.running:
@@ -680,7 +680,7 @@ async def run_gui(app: DeathBedApp) -> None:
 async def main() -> None:
     parser = argparse.ArgumentParser(
         prog="python -m examples.death_bed",
-        description="Death Bed — hospital telemetry patient monitor visualizer."
+        description="Death Bed: hospital telemetry patient monitor visualizer."
     )
     parser.add_argument("--simulate", action="store_true", help="run in simulated demo mode")
     args = parser.parse_args()

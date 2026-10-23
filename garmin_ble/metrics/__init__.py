@@ -27,8 +27,8 @@ from .spo2 import SPO2, SpO2
 from .steps import STEPS, Steps
 from .stress import STRESS, Stress
 
-# Declaration order here is display order — it is what `Metric.ALL_TELEMETRY`,
-# the checklist renderer, and `stream_all()` iterate in.
+# Declaration order here is display order. `Metric.ALL_TELEMETRY`,
+# the checklist renderer, and `stream_all()` iterate in this order.
 Metric.ALL_TELEMETRY = (
     HEART_RATE,
     STEPS,

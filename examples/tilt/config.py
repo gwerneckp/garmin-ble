@@ -6,12 +6,12 @@ package can read like game logic instead of magic numbers.
 
 from __future__ import annotations
 
-# ── Window ─────────────────────────────────────────────────────────────────
+# Window
 #
 # The game is laid out against a 720p design height and then scaled to
 # whatever the display actually is. On a Retina panel that means rendering at
 # the true pixel resolution (2560x1664, say) rather than at 720p and letting
-# the OS upscale it — which is what makes it look soft.
+# the OS upscale it, which is what makes it look soft.
 
 DESIGN_HEIGHT = 720
 
@@ -34,7 +34,7 @@ def px(value: float) -> int:
     """Scale a design-resolution pixel measurement to the real display."""
     return max(1, int(round(value * UI)))
 
-# ── Palette ────────────────────────────────────────────────────────────────
+# Palette
 #
 # Cel shading only ever multiplies these by a small set of fixed bands, so the
 # base colours are chosen bright: the shading darkens, it never brightens.
@@ -94,7 +94,7 @@ LIGHT_DIR = (-0.34, -0.86, -0.38)
 #: Warm bounce added to surfaces facing the light, for that sunlit look.
 RIM_WARMTH = (26, 18, 0)
 
-# ── Camera ─────────────────────────────────────────────────────────────────
+# Camera
 
 #: Straight down. A tilted camera makes a level board *look* tilted, which
 #: is the one thing this game cannot afford to be ambiguous about: flat
@@ -109,26 +109,26 @@ CAM_HEIGHT = CAM_HEIGHT_BASE
 CAM_FOV = CAM_FOV_BASE
 
 #: The camera leans this many radians *against* the board tilt, and eases in
-#: as the sprite picks up speed. Subtle on purpose — it should read as life,
-#: not as a second control axis.
+#: as the sprite picks up speed. Subtle on purpose: it should read as life
+#: rather than as a second control axis.
 CAM_COUNTER_LEAN = 0.075
 CAM_SPEED_DOLLY = 70.0     # px of dolly-in at full speed
 CAM_LERP = 0.12
 
-# ── Board ──────────────────────────────────────────────────────────────────
+# Board
 
 GRID = 9                   # islands are GRID x GRID cells
 CELL = 88.0                # world units per cell
 SLAB_DEPTH = 52.0          # thickness of the island slab
 
-# ── Physics ────────────────────────────────────────────────────────────────
+# Physics
 #
 # The watch reports gravity in g. On a plane whose normal is the watch's own
 # face normal, the in-plane component of gravity is exactly the (x, y) part of
-# that vector — so tilt maps to acceleration with no trigonometry at all.
+# that vector, so tilt maps to acceleration with no trigonometry at all.
 
 #: World units/s^2 at 1g of in-plane tilt. The first islands are deliberately
-#: gentler — you are still learning how far your wrist has to move, and full
+#: gentler: you are still learning how far your wrist has to move, and full
 #: gravity there just flings you off before you have read the board.
 GRAVITY_START = 1100.0
 GRAVITY_FULL = 2400.0
@@ -150,8 +150,8 @@ def gravity_at(depth: int) -> float:
 #: models. The captures in `data/` read Z = -1 lying face-up, but a watch whose
 #: face normal is Y instead would sit at a 90-degree pitch forever and the
 #: island would stand on its edge. Detection just watches for the first moment
-#: the watch is roughly level and takes the axis carrying gravity — no pose to
-#: hold, no prompt, and nothing to drift.
+#: the watch is roughly level and takes the axis carrying gravity. There is no
+#: pose to hold, no prompt, and nothing to drift.
 FACE_AXIS = None           # None = auto, else 0 = x, 1 = y, 2 = z
 FACE_SIGN = None           # None = auto, else -1 or +1
 
@@ -168,14 +168,14 @@ INVERT_Y = False
 TILT_RESPONSE = 0.075
 
 #: Physics runs at this fixed rate regardless of frame rate, so a long frame
-#: cannot change how the ball behaves — only how often you see it.
+#: cannot change how the ball behaves, only how often you see it.
 PHYSICS_HZ = 240.0
 
 #: A wrist flick is a departure from 1g by this much, in g.
 FLICK_THRESHOLD = 0.62
 FLICK_COOLDOWN = 0.45
 
-# ── Progression ────────────────────────────────────────────────────────────
+# Progression
 
 HAZARD_VINE_FROM = 4
 HAZARD_CRUMBLE_FROM = 7
@@ -187,14 +187,14 @@ HOLES_START = 0.06
 HOLES_END = 0.24
 HOLES_RAMP = 22
 
-# ── Timing ─────────────────────────────────────────────────────────────────
+# Timing
 
 DESCEND_TIME = 1.25        # seconds of the drop-through transition
 DEATH_SLOWMO = 0.32        # time scale while falling to your doom
 DEATH_FALL_TIME = 0.8      # before the score card appears
 CARD_INPUT_DELAY = 0.35    # grace so the killing flick can't insta-restart
 
-# ── Audio ──────────────────────────────────────────────────────────────────
+# Audio
 
 AUDIO_RATE = 22050
 

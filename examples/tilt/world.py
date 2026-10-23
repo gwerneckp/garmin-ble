@@ -3,7 +3,7 @@
 Every island is guaranteed solvable: a path is carved from the spawn to the
 goal *first*, and holes are only ever punched into cells that path never
 touches. Difficulty comes from how much of the rest of the board disappears
-and which hazards have unlocked — never from a board you cannot cross.
+and which hazards have unlocked, never from a board you cannot cross.
 """
 
 from __future__ import annotations

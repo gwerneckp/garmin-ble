@@ -63,7 +63,7 @@ from .transport import ReplayTransport, SimulatedTransport, Transport
 log = get_logger(__name__)
 
 
-# ── types and helpers ────────────────────────────────────────────────────────
+# Types and helpers
 
 R = TypeVar("R", bound=Reading)
 
@@ -86,9 +86,7 @@ def _seconds(value: Optional[Duration], default: Optional[float] = None) -> Opti
     return float(value)
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-#  Value types
-# ─────────────────────────────────────────────────────────────────────────────
+# Value types
 
 
 @dataclass(frozen=True)
@@ -114,7 +112,7 @@ class Battery:
     """The watch's own battery state.
 
     ``status`` is ``None`` when the watch omitted the field, which is not the
-    same as a healthy reading — do not treat an absent status as good news.
+    same as a healthy reading. Do not treat an absent status as good news.
     """
 
     percent: int
@@ -183,9 +181,7 @@ class Diagnostics:
         )
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-#  Fan-out plumbing
-# ─────────────────────────────────────────────────────────────────────────────
+# Fan-out plumbing
 
 
 class _Fanout:
@@ -222,15 +218,13 @@ class _Fanout:
         self._queues.clear()
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-#  Watch
-# ─────────────────────────────────────────────────────────────────────────────
+# Watch
 
 
 class Watch:
     """A connected Garmin watch.
 
-    Do not construct directly — use :meth:`discover`, :meth:`at`, :meth:`named`,
+    Do not construct directly. Use :meth:`discover`, :meth:`at`, :meth:`named`,
     :meth:`simulated`, or :meth:`replay`, each of which returns a
     :class:`WatchSession` usable as an async context manager.
     """
@@ -302,7 +296,7 @@ class Watch:
         transport.on_notify = self._on_packet
         transport.on_disconnect = self._on_transport_drop
 
-    # ── session factories ───────────────────────────────────────────────────
+    # Session factories
 
     @classmethod
     def discover(
@@ -393,7 +387,7 @@ class Watch:
     ) -> "WatchSession":
         """Replay a capture written by :meth:`record`.
 
-        ``speed`` scales the original inter-frame delays — 1.0 is real time,
+        ``speed`` scales the original inter-frame delays: 1.0 is real time,
         higher is faster, ``None`` replays as fast as the loop allows. ``loop``
         restarts the capture when it runs out instead of ending the session.
         """
@@ -403,7 +397,7 @@ class Watch:
             reconnect=reconnect,
         )
 
-    # ── properties ──────────────────────────────────────────────────────────
+    # Properties
 
     @property
     def info(self) -> DeviceInfo:
@@ -424,7 +418,7 @@ class Watch:
     def latest(self, metric: "Metric[R]") -> Optional[R]:
         """The most recent reading seen for *metric* this session, if any.
 
-        Several metrics — steps, intensity minutes, body battery — are sent once
+        Several metrics (steps, intensity minutes, body battery) are sent once
         when their service starts and then only when the value changes, which on
         a resting wrist can be many minutes. Without a cache, anything that
         subscribes, reads, and unsubscribes sees them exactly once and then
@@ -432,7 +426,7 @@ class Watch:
         """
         return self._latest.get(metric)  # type: ignore[return-value]
 
-    # ── connection lifecycle ────────────────────────────────────────────────
+    # Connection lifecycle
 
     async def _connect(self) -> None:
         """Open the transport and complete the GFDI handshake."""
@@ -590,7 +584,7 @@ class Watch:
 
         log.warning("Giving up reconnecting after %d attempts", attempts)
 
-    # ── sending ─────────────────────────────────────────────────────────────
+    # Sending
 
     async def _write(self, payload: bytes, kind: FrameKind, handle: int) -> None:
         packet = mlr.encode_tx(handle, payload)
@@ -607,7 +601,7 @@ class Watch:
             await self._write(chunk, FrameKind.GFDI, handle)
 
     async def _reflex_gfdi(self, frame: bytes) -> None:
-        """Send a reflex to inbound traffic — an ACK, or a time answer.
+        """Send a reflex to inbound traffic: an ACK, or a time answer.
 
         Unlike a caller-initiated send, these are worthless once the link is
         down: a frame that arrived just before a drop would otherwise raise from
@@ -620,7 +614,7 @@ class Watch:
         except NotConnected:
             pass
 
-    # ── receiving ───────────────────────────────────────────────────────────
+    # Receiving
 
     async def _on_packet(self, data: bytes) -> None:
         """Transport callback. Kept short: decode, route, hand off."""
@@ -700,7 +694,7 @@ class Watch:
                 return service
         return None
 
-    # ── GFDI ────────────────────────────────────────────────────────────────
+    # GFDI
 
     def _on_gfdi_bytes(self, payload: bytes) -> None:
         self._cobs.received_bytes(payload)
@@ -837,7 +831,7 @@ class Watch:
             )
         )
 
-    # ── dispatch ────────────────────────────────────────────────────────────
+    # Dispatch
 
     def _publish(self, metric: Metric, reading: Reading) -> None:
         self._latest[metric] = reading
@@ -855,7 +849,7 @@ class Watch:
         """Run user handlers off the transport's callback path.
 
         Handlers run here rather than inline so a slow one delays only other
-        handlers, never frame decoding — and so ``async def`` handlers are
+        handlers, never frame decoding. It also means ``async def`` handlers are
         actually awaited instead of being dropped as un-awaited coroutines.
         """
         try:
@@ -903,7 +897,7 @@ class Watch:
             except Exception:
                 log.exception("Frame handler raised")
 
-    # ── heartbeat ───────────────────────────────────────────────────────────
+    # Heartbeat
 
     async def _heartbeat_loop(self) -> None:
         try:
@@ -919,7 +913,7 @@ class Watch:
             log.exception("Heartbeat stopped")
 
     async def sync_time(self) -> None:
-        """Push the current time to the watch. Also serves as the keep-alive."""
+        """Push the current time to the watch. This is also the keep-alive."""
         await self._send_gfdi(
             gfdi.GfdiMessageBuilder.build_system_event(int(SystemEventType.TIME_UPDATED), 0)
         )
@@ -927,7 +921,7 @@ class Watch:
         self.diagnostics.last_heartbeat = time.monotonic()
         self._emit(ev.TimeSyncSent())
 
-    # ── subscriptions ───────────────────────────────────────────────────────
+    # Subscriptions
 
     async def _register_service(self, service: int) -> bool:
         """Ask for a handle and wait for the watch's actual answer.
@@ -1031,7 +1025,7 @@ class Watch:
                 else:
                     self._subscriptions[metric] = count - 1
 
-    # ── consuming telemetry ─────────────────────────────────────────────────
+    # Consuming telemetry
 
     def on(self, metric: Metric) -> Callable[[Handler], Handler]:
         """Register a handler for a metric, subscribing on first use.
@@ -1060,7 +1054,7 @@ class Watch:
         """Yield readings for one metric until the caller stops iterating.
 
         Subscribes on entry and releases when the iterator is closed. Leaving
-        the loop — by ``break``, ``return``, or an exception — schedules that
+        the loop (by ``break``, ``return``, or an exception) schedules that
         close, so the release lands a few event-loop iterations later rather
         than on the next statement. Wrap the call in ``contextlib.aclosing`` if
         you need it to have happened by then::
@@ -1151,7 +1145,7 @@ class Watch:
     ) -> CollectionResult:
         """Gather samples until every requested metric has produced data.
 
-        Returns as soon as the condition is met, or when the timeout expires —
+        Returns as soon as the condition is met, or when the timeout expires,
         whichever comes first. The result says what arrived, how much of it, and
         why anything missing is missing.
 
@@ -1220,13 +1214,13 @@ class Watch:
             if metric not in result.samples and metric not in result.missing:
                 result.missing[metric] = Missing(
                     metric,
-                    "no sample within the timeout — some metrics need movement "
+                    "no sample within the timeout; some metrics need movement "
                     "or a longer window",
                     supported=True,
                 )
         return result
 
-    # ── events ──────────────────────────────────────────────────────────────
+    # Events
 
     async def events(self) -> AsyncIterator[ev.WatchEvent]:
         """Yield link and protocol events until the session ends.
@@ -1245,7 +1239,7 @@ class Watch:
         finally:
             self._events.unsubscribe(queue)
 
-    # ── protobuf ────────────────────────────────────────────────────────────
+    # Protobuf
 
     async def request(
         self,
@@ -1295,7 +1289,7 @@ class Watch:
         """Answer a message the watch sends us.
 
         Dispatch is on the concrete message type, and the handler returns the
-        bare response message — the library wraps, frames, and correlates it::
+        bare response message. The library wraps, frames, and correlates it::
 
             @watch.responds_to(DeviceStatusService.RemoteDeviceBatteryStatusRequest)
             def _(request):
@@ -1308,7 +1302,7 @@ class Watch:
 
         return decorator
 
-    # ── device queries ──────────────────────────────────────────────────────
+    # Device queries
 
     async def battery(self, timeout: Optional[Duration] = 10.0) -> Battery:
         """Read the watch's battery level."""
@@ -1351,7 +1345,7 @@ class Watch:
             for app in response.installedApps
         ]
 
-    # ── debugging ───────────────────────────────────────────────────────────
+    # Debugging
 
     def record(self, path: Union[str, Path]) -> None:
         """Write every frame, both directions, to a replayable capture file."""
@@ -1360,9 +1354,7 @@ class Watch:
         self._recorder = Recorder(path)
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-#  Session
-# ─────────────────────────────────────────────────────────────────────────────
+# Session
 
 
 class WatchSession:

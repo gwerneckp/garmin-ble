@@ -4,8 +4,8 @@ Every protobuf the watch understands is nested two levels deep::
 
     Smart -> DeviceStatusService -> RemoteDeviceBatteryStatusRequest
 
-Building that nesting by hand — and unwrapping it again with a chain of
-``HasField`` checks — is mechanical work the ``Smart`` descriptor already
+Building that nesting by hand, and unwrapping it again with a chain of
+``HasField`` checks, is mechanical work the ``Smart`` descriptor already
 describes. :class:`SmartRouter` walks the descriptor once and derives the full
 routing map, so callers pass the innermost message and never mention ``Smart``
 at all. Adding a service to the ``.proto`` files makes it routable with no
@@ -49,7 +49,7 @@ class SmartRouter:
     _paths: Optional[Dict[str, _Path]] = None
     _ambiguous: Set[str] = set()
 
-    # ── table construction ──────────────────────────────────────────────────
+    # Table construction
 
     @classmethod
     def _table(cls) -> Dict[str, _Path]:
@@ -85,13 +85,13 @@ class SmartRouter:
         """Whether :meth:`wrap` can place *message* without guessing."""
         return message.DESCRIPTOR.full_name in cls._table()
 
-    # ── wrapping ────────────────────────────────────────────────────────────
+    # Wrapping
 
     @classmethod
     def wrap(cls, message: Message) -> gdi_smart_proto_pb2.Smart:
         """Nest a service message inside a fresh ``Smart`` envelope.
 
-        Passing a ``Smart`` through is a no-op, so callers who genuinely need to
+        Passing a ``Smart`` through is a no-op, so callers who need to
         hand-build an envelope still can.
         """
         if isinstance(message, gdi_smart_proto_pb2.Smart):
@@ -106,7 +106,7 @@ class SmartRouter:
                     f"build the Smart envelope explicitly for this one"
                 )
             raise UnroutableMessage(
-                f"{key} is not a field of any service in Smart — it cannot be "
+                f"{key} is not a field of any service in Smart, so it cannot be "
                 f"sent on its own"
             )
 
@@ -119,7 +119,7 @@ class SmartRouter:
         target.SetInParent()
         return smart
 
-    # ── unwrapping ──────────────────────────────────────────────────────────
+    # Unwrapping
 
     @staticmethod
     def unwrap(smart: gdi_smart_proto_pb2.Smart) -> Optional[Message]:

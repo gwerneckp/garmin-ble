@@ -4,8 +4,8 @@ Every byte in and out of the transport becomes a :class:`Frame`. Frames feed
 three things: ``@watch.on_frame`` for live inspection, ``watch.record(path)``
 for capture files, and the counters behind ``watch.diagnostics``.
 
-Capture files are JSON Lines — one frame per line, greppable with ordinary
-tools, and replayable with ``Watch.replay(path)``. Attaching one to a bug
+Capture files are JSON Lines: one frame per line, greppable with ordinary
+tools, replayable with ``Watch.replay(path)``. Attaching one to a bug
 report lets someone reproduce a protocol problem without owning the watch.
 """
 
@@ -60,7 +60,7 @@ class Frame:
         body = self.decoded or self.raw.hex()
         return f"{self.direction} {self.kind:<9} handle=0x{self.handle:02x} {body}"
 
-    # ── capture-file serialisation ──────────────────────────────────────────
+    # Capture-file serialisation
 
     def to_json(self) -> str:
         payload = {

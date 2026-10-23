@@ -2,7 +2,7 @@
 
 Two signals come out of the accelerometer: a smoothed gravity vector (which
 axis is down, and how far over you are holding your arm) and a flick, which is
-a brief departure from 1g. No calibration step exists because none is needed —
+a brief departure from 1g. No calibration step exists because none is needed:
 gravity is an absolute reference, so "watch face level" is exactly zero tilt
 and it cannot drift.
 """
@@ -40,7 +40,7 @@ class Wrist:
         self.packets = 0
         self.last_packet_at = 0.0
 
-    # ── Ingest ─────────────────────────────────────────────────────────────
+    # Ingest
 
     def feed(self, packet: metrics.AccelPacket) -> None:
         """Average one burst into a gravity estimate and look for a flick."""
@@ -87,7 +87,7 @@ class Wrist:
     def _detect_face_axis(self) -> None:
         """Learn which axis leaves the watch face, the first time it is level.
 
-        This is not a calibration pose — there is nothing to hold and nothing
+        This is not a calibration pose. There is nothing to hold and nothing
         to get wrong. Gravity is absolute, so the axis carrying ~1g while the
         rest read ~0 *is* the face normal, and it is a fixed property of the
         hardware. Once found it never changes, so this locks and stops looking.
@@ -107,18 +107,18 @@ class Wrist:
         self.face_sign = 1 if value > 0 else -1
         self.face_locked = True
 
-    # ── Query ──────────────────────────────────────────────────────────────
+    # Query
 
     def tilt(self) -> Tuple[float, float]:
-        """In-plane gravity, in g — directly the acceleration on the board."""
+        """In-plane gravity, in g. This is directly the acceleration on the board."""
         return (self.gx, self.gy)
 
     def gravity(self) -> Tuple[float, float, float]:
         """Smoothed gravity, rotated so Z is the watch's face normal.
 
         Every axis correction lives here and nowhere else, so a change in
-        `config` moves the board you see and the way the ball rolls together —
-        they can never end up disagreeing.
+        `config` moves the board you see and the way the ball rolls together.
+        They can never end up disagreeing.
 
         All of them are *rotations*, never single-axis negations. Negating one
         axis mirrors the frame, and a mirrored frame renders rotations

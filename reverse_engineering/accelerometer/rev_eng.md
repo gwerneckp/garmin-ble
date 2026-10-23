@@ -1,15 +1,15 @@
-# Reverse Engineering: Garmin BLE Accelerometer Service (Service 16)
+# Reverse engineering the Garmin BLE accelerometer service (service 16)
 
-A step-by-step journal of how we cracked the proprietary Garmin BLE "Accelerometer" service (Service code `0x10`). This document outlines our initial failures, our false hypotheses about mixed sensors, the statistical tests across 9 different physical datasets, and the final mathematical breakthrough that fully decoded the protocol.
+A journal of how we decoded the proprietary Garmin BLE accelerometer service (service code `0x10`). It covers the parsers that failed, the wrong guess that a second sensor was mixed in, statistical tests across 9 physical datasets, and the bit layout that finally decoded the payload.
 
 ---
 
-## 1. The Starting Point: A Blank Slate
+## 1. Starting point
 
-Our "ground truth" for the Garmin BLE protocol is the legacy Gadgetbridge Java source code. While the Java code successfully authenticates and routes messages, it **never actually parsed the accelerometer data**. It simply logged the hex dump:
+Our reference for the Garmin BLE protocol is the legacy Gadgetbridge Java source. It authenticates and routes messages, but it never parsed the accelerometer data. It only logged a hex dump:
 
 ```java
-// From CommunicatorV2.java — this is ALL Gadgetbridge did:
+// From CommunicatorV2.java. This is all Gadgetbridge did:
 private static class RealtimeAccelerometerCallback implements ServiceCallback {
     @Override
     public void onMessage(final byte[] value) {
@@ -18,12 +18,12 @@ private static class RealtimeAccelerometerCallback implements ServiceCallback {
 }
 ```
 
-We were entirely on our own to figure out what the bytes meant.
+So we had to work out what the bytes meant ourselves.
 
-### The Original Assumption (And Why It Was Wrong)
+### The original assumption, and why it was wrong
 
-We observed that the packet was 16 bytes long. Stripping the 1-byte service header left a 15-byte payload. 
-We guessed it was a standard 12-bit packed format. Why? Because 15 bytes = 120 bits, which neatly divides into exactly 10 values of 12 bits each.
+The packet was 16 bytes long. Stripping the 1-byte service header left a 15-byte payload.
+We guessed it was a standard 12-bit packed format, because 15 bytes = 120 bits, which divides into exactly 10 values of 12 bits each.
 
 ```text
 Our First (Wrong) Guess:
@@ -33,13 +33,13 @@ Our First (Wrong) Guess:
   V7, V8, V9: Sample 3 X, Y, Z
 ```
 
-We built a full Pygame 3D visualizer based on this assumption. It actually looked plausible at first! When you rotated the watch, the 3D model rotated. However, the axes felt "mushy" and cross-contaminated.
+We built a Pygame 3D visualizer on this assumption. At first it looked plausible: rotating the watch rotated the 3D model. But the axes felt mushy and seemed to bleed into each other.
 
 ---
 
-## 2. The Anomaly: Is there a Barometer?
+## 2. Is there a barometer?
 
-To calibrate the axes, we built a recording tool (`reverse_eng.py`) to capture and label 10-second sessions of raw data. We recorded our first 7 datasets:
+To calibrate the axes, we wrote a recording tool (`reverse_eng.py`) that captures and labels 10-second sessions of raw data. We recorded the first 7 datasets:
 
 1. `desk_stationary_facing_down`
 2. `desk_stationary_facing_up`
@@ -49,39 +49,39 @@ To calibrate the axes, we built a recording tool (`reverse_eng.py`) to capture a
 6. `holding_in_hand_tilting_to_left_45_deg`
 7. `holding_in_hand_tilting_to_right_45_deg`
 
-### The Height Test
-We compared the watch placed perfectly flat on a shelf/desk against the floor (keeping the orientation absolutely identical). Under our original parser, we saw this:
+### Height test
+We compared the watch lying flat on a shelf/desk with the same watch on the floor, in the same orientation. The original parser gave:
 
 | Placement | P1 (avg "X") | P2 (avg "Y") |
 |-----------|-------------|-------------|
 | Shelf     | ~+10        | ~-30        |
 | Floor     | ~+100       | ~-700       |
 
-**This was alarming.** An accelerometer measures the direction of gravity. A stationary watch should output the exact same gravity vector regardless of whether it's on a shelf or the floor — altitude doesn't change gravity enough to be measurable here.
+This should not happen. An accelerometer measures the direction of gravity, so a stationary watch should output the same gravity vector on a shelf or on the floor. The altitude difference doesn't change gravity enough to measure here.
 
-### The Barometer Hypothesis
-Because the values changed so drastically with height, we formulated a new hypothesis: **Service 16 is not just an accelerometer.** We suspected the data was a multiplexed stream containing Barometric Pressure (which changes measurably between a desk and a floor) alongside the accelerometer.
+### Barometer hypothesis
+Because the values changed so much with height, we suspected service 16 carried more than accelerometer data: a multiplexed stream with barometric pressure (which does change measurably between a desk and the floor) alongside the accelerometer.
 
 ---
 
-## 3. Stripping It Back to Raw Bytes
+## 3. Back to raw bytes
 
-Realizing our 12-bit assumption might be causing data from different sensors to bleed across byte boundaries, we threw out the parser. We wrote `testing.py` to dump the raw hexadecimal bytes and look for basic patterns.
+The 12-bit assumption might have been smearing data from different sensors across byte boundaries, so we threw out the parser. We wrote `testing.py` to dump the raw bytes and look for basic patterns.
 
-### Discovering the Timestamp
+### Finding the timestamp
 
-We built a minimal script (`testing.py`) to print the raw hex bytes in every possible grouping (8-bit, 16-bit LE, 16-bit BE). Here is a snippet of the raw packet bytes (after stripping the `0x10` service header):
+`testing.py` prints the raw bytes in every grouping (8-bit, 16-bit LE, 16-bit BE). Here are the raw packet bytes from one packet, after stripping the `0x10` service header:
 
 ```text
 Bytes 0-14: [31, 105, 0, 176, 255, 3, 255, 255, 253, 63, 240, 0, 192, 255, 1]
 ```
 
-When we asked the script to print these as 16-bit Little-Endian pairs, we saw:
+As 16-bit little-endian pairs:
 ```text
 As 16-bit LE pairs: [26911, 45056, 1023, 65535, 16381, 240, 65472, 7937]
 ```
 
-The first value (`26911`) caught our eye. It looked like an incrementing counter. We added a quick delta tracking script to compare consecutive packets:
+The first value (`26911`) looked like an incrementing counter. We added delta tracking to compare consecutive packets:
 
 ```text
   📡 pkt 1  ts=26911  Δ=0    │ 0 176 255 3 255 255 253 63 240 0 192 255 1
@@ -93,19 +93,19 @@ The first value (`26911`) caught our eye. It looked like an incrementing counter
   📡 pkt 71 ts=26847  Δ=-8184 (Rollover anomaly)
 ```
 
-**Confirmed:** Bytes 0-1 are a 16-bit LE unsigned timestamp in milliseconds. 
-- The delta is consistently `+115`, `+116`, or `+117` ms, which perfectly aligns with a packet transmission rate of ~8.7 Hz.
-- The occasional massive negative delta (like `-8184`) is just a standard integer rollover artifact (wrapping around a limit).
+Confirmed: bytes 0-1 are a 16-bit LE unsigned timestamp in milliseconds.
+- The delta is always `+115`, `+116`, or `+117` ms, which matches a packet rate of ~8.7 Hz.
+- The occasional large negative delta (like `-8184`) is an integer rollover (the counter wrapping around a limit).
 
-This proved our initial 12-bit timestamp hypothesis was entirely wrong. The packet had a full 2-byte timestamp, leaving a **14-byte payload**, not 15 bytes.
+So the 12-bit timestamp guess was wrong. The packet has a full 2-byte timestamp, which leaves a 14-byte payload, not 15.
 
 ---
 
-## 4. Statistical Analysis of the 14 Bytes
+## 4. Statistics on the 14 bytes
 
-We wrote an automated analysis script (`analyze.py`) to calculate the Mean and Standard Deviation (StdDev) of the 14 remaining bytes across all our datasets. We treated the 14 bytes as signed 8-bit integers (`rb[0]` to `rb[13]`).
+`analyze.py` calculates the mean and standard deviation (StdDev) of each of the 14 remaining bytes across all datasets, treating them as signed 8-bit integers (`rb[0]` to `rb[13]`).
 
-Here is a snippet of the actual analysis log comparing the desk, floor, and tilted orientations:
+An excerpt of the analysis log for the desk, floor and tilted recordings:
 
 ```text
 =============================================================================
@@ -125,23 +125,23 @@ rb[ 8] |-16.0± 0.1 | 15.8± 0.4 |-16.0± 0.0 | 15.9± 0.3  |-12.7± 1.0 | -11.7
 rb[13] | 31.0± 0.1 | 16.8± 0.4 | 31.0± 0.0 | 16.9± 0.3  | 31.0± 0.0 |  31.0± 0.0
 ```
 
-**Key Discoveries from the Stats:**
-1. **The Gravity Flipper:** `rb[8]` flipped perfectly from `-16.0` (face up) to `+15.8` (face down), regardless of desk vs. floor. This was an undeniable gravity axis.
-2. **The Flag Byte:** `rb[13]` (the very last byte) had almost zero variance and only ever took values in the `0x1X` range (16, 17, 30, 31). It was clearly a status flag, not sensor data.
+What the stats showed:
+1. `rb[8]` flipped from `-16.0` (face up) to `+15.8` (face down), on both the desk and the floor. That is a gravity axis.
+2. `rb[13]` (the last byte) had almost zero variance and only took values in the `0x1X` range (16, 17, 30, 31). It looked like a status flag rather than sensor data.
 
 ---
 
-## 5. The Turning Point: The Shaking Test
+## 5. Shaking test
 
-With 14 mystery bytes left, we still needed to prove if there was a barometer mixed in. We recorded two final datasets:
+We still needed to find out whether a barometer was mixed into the 14 bytes. We recorded two more datasets:
 8. `watch_against_wall_45_deg`
 9. `shaking` (violent random shaking for 10 seconds)
 
-The shaking test was the definitive filter:
-- If a byte represents an **Accelerometer**, the physical shaking will cause the values to swing wildly (huge standard deviation).
-- If a byte represents a **Barometer** or a **Status Flag**, shaking won't affect it, and the std dev will remain low.
+Shaking separates the two cases:
+- If a byte is accelerometer data, shaking makes it swing widely (large standard deviation).
+- If a byte is a barometer reading or a status flag, shaking doesn't affect it and the standard deviation stays low.
 
-### The Shaking Results
+### Shaking results
 ```text
   Byte |    shaking (StdDev)
 -----------------------------
@@ -161,69 +161,69 @@ rb[12] |    5.6 ± 71.3
 rb[13] |   22.3 ±  6.4  <-- Low variance (Flag byte)
 ```
 
-When we analyzed the standard deviation during shaking, **almost every single byte swung wildly.** There was no stable data block. The shaking test conclusively proved that the payload is **100% accelerometer data**. There is no barometer. 
+During shaking, almost every byte swung widely. There was no stable block of data, so the payload is all accelerometer data. There is no barometer.
 
-### So what caused the Height Anomaly?
-If it's pure accelerometer data, and the shelf and floor were at the exact same level orientation, why did the values change so drastically?
+### What caused the height difference?
+If it is all accelerometer data, and the watch had the same orientation on the shelf and the floor, why did the values change so much?
 
-**It was an illusion caused by the broken math.**
-Our original parser assumed the payload was 15 bytes long and tried to extract 10 values from it. Because the actual payload was only 14 bytes, the math was shifting the bitwise operations completely out of alignment and scrambling the channels. What looked like a massive sensor change (which we mistook for a barometer responding to altitude) was actually just the bit-shifting parser tearing the accelerometer data apart incorrectly. The breakthrough was realizing the payload is exactly 14 bytes (13.5 bytes of data + a 4-bit flag). Once the 1.5-byte (12-bit) boundaries were properly aligned, the math proved the accelerometer values were identical on both the shelf and the floor.
+The parser was wrong.
+It assumed a 15-byte payload and extracted 10 values from it. The real payload was 14 bytes, so the bit shifts were out of alignment and the channels were scrambled. The large change we had taken for a barometer responding to altitude was the parser misreading the accelerometer data. The payload is exactly 14 bytes (13.5 bytes of data plus a 4-bit flag). With the 1.5-byte (12-bit) boundaries aligned correctly, the accelerometer values on the shelf and the floor were identical.
 
 ---
 
-## 6. The Final Mathematical Breakthrough
+## 6. The bit layout
 
-Knowing we had 14 bytes of pure accelerometer data, the final puzzle piece clicked into place.
+With 14 bytes of accelerometer data, the layout follows.
 
-An accelerometer delivers data in 3 axes (X, Y, Z). Garmin clearly sends multiple samples per packet to save battery. How many fit in 14 bytes?
-- 3 samples of X, Y, Z = **9 values**.
-- If Garmin uses **12-bit packing** (1.5 bytes per value), then 9 values × 1.5 bytes = **13.5 bytes**.
+An accelerometer reports 3 axes (X, Y, Z). Garmin presumably sends several samples per packet to save battery. How many fit in 14 bytes?
+- 3 samples of X, Y, Z = 9 values.
+- With 12-bit packing (1.5 bytes per value), 9 values × 1.5 bytes = 13.5 bytes.
 
-This leaves exactly **0.5 bytes (4 bits)** leftover at the end of the 14-byte payload.
+That leaves 0.5 bytes (4 bits) at the end of the 14-byte payload.
 
-This perfectly matched our statistical finding that `rb[13]` (the last byte) was a flag! 
-The upper nibble (first 4 bits) of `rb[13]` is ALWAYS `1` (`0x1_`). The lower nibble contains the remaining 4 bits of the 9th accelerometer value!
+This matches the finding that `rb[13]` (the last byte) behaves like a flag.
+The upper nibble (first 4 bits) of `rb[13]` is always `1` (`0x1_`). The lower nibble holds the remaining 4 bits of the 9th accelerometer value.
 
-### Proving the Math
+### Checking the layout
 
-We wrote `test_12bit.py` to unpack the 14 bytes into 9 signed values (3 samples) using this exact layout and tested it against our logs:
+`test_12bit.py` unpacks the 14 bytes into 9 signed values (3 samples) with this layout. We ran it against the recordings:
 
-**Test 1: Flat on Desk (Face Up)**
+Test 1: flat on desk, face up
 ```text
 V0-V2 (Sample 1 X,Y,Z): [0, -3, -255]
 V3-V5 (Sample 2 X,Y,Z): [0, -3, -255]
 V6-V8 (Sample 3 X,Y,Z): [2, -2, -254]
 ```
 - Magnitude: `sqrt(0^2 + (-3)^2 + (-255)^2) ≈ 255`
-- *Result:* Perfect 1g reading! (A 10-bit accelerometer scales such that 1g = 256. Mapped into a 12-bit signed integer, this gives a massive ±8g range).
+- Result: 1g. (A 10-bit accelerometer scales so that 1g = 256. In a 12-bit signed integer that gives a ±8g range.)
 
-**Test 2: Flat on Desk (Face Down)**
+Test 2: flat on desk, face down
 ```text
 V0-V2 (Sample 1 X,Y,Z): [4, -1, 258]
 ```
 - Magnitude: `~258`
-- *Result:* Perfect 1g reading. Flipping the watch upside down perfectly inverted the Z-axis from -255 to +258.
+- Result: 1g. Turning the watch upside down inverted the Z axis from -255 to +258.
 
-**Test 3: Tilted 45 Degrees Against a Wall**
+Test 3: tilted 45 degrees against a wall
 ```text
 V0-V2 (Sample 1 X,Y,Z): [-203, 20, -151]
 ```
 - Magnitude: `sqrt((-203)^2 + 20^2 + (-151)^2) ≈ 253.7`
-- *Result:* Perfect 1g reading. Gravity is evenly distributed across the X and Z axes due to the 45-degree tilt.
+- Result: 1g. The 45-degree tilt splits gravity across the X and Z axes.
 
-**Test 4: Shaking**
+Test 4: shaking
 ```text
 V0-V2 (Sample 1 X,Y,Z): [813, 124, 165]
 V3-V5 (Sample 2 X,Y,Z): [1377, -1540, -32]
 V6-V8 (Sample 3 X,Y,Z): [885, -1288, 107]
 ```
-- *Result:* Values swing violently from -2048 to +2047, confirming the dynamic nature of the data.
+- Result: values swing across the full -2048 to +2047 range, as expected for motion.
 
 ---
 
-## 7. Summary of the True Protocol
+## 7. Protocol summary
 
-The reverse engineering is complete. We now have 100% confidence in the Garmin GFDI V2 Accelerometer packet structure.
+The Garmin GFDI V2 accelerometer packet structure:
 
 ```text
 Packet size: 17 bytes total

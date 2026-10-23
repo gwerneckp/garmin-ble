@@ -119,7 +119,7 @@ class GfdiMessageBuilder:
         return _build_frame(5030, payload)
 
 
-# ── decoding ────────────────────────────────────────────────────────────────
+# Decoding
 
 
 @dataclass(frozen=True)
@@ -196,7 +196,7 @@ class DeviceInformation:
 
     Real watches push this unprompted shortly after the GFDI channel opens. It
     is the only place the firmware version and the true model name are
-    available — the BLE advert name is a marketing name, not either of those.
+    available. The BLE advert name is a marketing name, not either of those.
 
     Wire format (little-endian, strings length-prefixed with one byte of UTF-8
     length), ported from Gadgetbridge's ``DeviceInformationMessage``::

@@ -3,7 +3,7 @@
 A capture written by ``watch.record(path)`` holds every frame in both
 directions with its timestamp. Replaying feeds the RX frames back in their
 original order, so the whole stack above the transport runs exactly as it did
-live. Host writes are accepted and discarded — the recording already contains
+live. Host writes are accepted and discarded; the recording already contains
 whatever the watch said in response.
 
 This is how a protocol bug gets reproduced by someone who does not own the
@@ -28,7 +28,7 @@ class ReplayTransport(Transport):
     """Feeds recorded RX frames back to the host.
 
     ``speed`` scales the original inter-frame delays: 1.0 replays in real time,
-    higher is faster, and ``None`` replays as fast as the event loop allows —
+    higher is faster, and ``None`` replays as fast as the event loop allows,
     which is what tests want.
     """
 

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Full Walkthrough — Verify every feature of garmin-ble in one shot.
+"""Full walkthrough: verify every feature of garmin-ble in one run.
 
 Usage:
     python examples/full_walkthrough.py
@@ -15,8 +15,8 @@ What it does:
   6. Disconnect cleanly
 
 Run this if you want a quick "does everything work?" verification.
-You need your watch nearby and NOT connected to a phone via BLE — or pass
-``--simulate`` to run the same checks against an in-process watch.
+You need your watch nearby and NOT connected to a phone via BLE. Alternatively,
+pass ``--simulate`` to run the same checks against an in-process watch.
 
 For a guided tour of the API itself, see ``full_walkthrough_idealistic.py``.
 """
@@ -98,12 +98,12 @@ async def main(simulate: bool) -> None:
     progress = Progress()
 
     print("=" * 58)
-    print("  Garmin BLE — Full Feature Walkthrough")
+    print("  Garmin BLE: Full Feature Walkthrough")
     print("=" * 58)
     print(f"\n  {WAITING} Scanning for a Garmin watch...")
 
     # Connecting, the handshake, and the keep-alive heartbeat are all part of
-    # opening the session — and leaving the block always disconnects, even on
+    # opening the session. Leaving the block always disconnects, even on
     # Ctrl+C or an exception.
     try:
         session = open_watch(simulate)
@@ -125,13 +125,13 @@ async def main(simulate: bool) -> None:
 
         event_task = asyncio.create_task(watch_for_events(watch, progress))
 
-        # ── Answer the watch if it asks for our battery level ──
+        # Answer the watch if it asks for our battery level.
         @watch.responds_to(DeviceStatus.RemoteDeviceBatteryStatusRequest)
         def _(_request):
-            print("\n  📱 Watch asked for phone battery — replying with 99%")
+            print("\n  📱 Watch asked for phone battery, replying with 99%")
             return DeviceStatus.RemoteDeviceBatteryStatusResponse(current_battery_level=99)
 
-        # ── Collect one sample from every telemetry service ──
+        # Collect one sample from every telemetry service.
         #
         # Subscribing to a metric registers and starts its service, so there is
         # no second list of service codes to keep in sync.
@@ -152,7 +152,7 @@ async def main(simulate: bool) -> None:
             print(f"\n  {WAITING} Timed out waiting for: {missing}")
             print("     Moving on… some services may need movement to trigger.\n")
 
-        # ── Ask for the battery level over Protobuf ──
+        # Ask for the battery level over Protobuf.
         print(f"\n  {WAITING} Sending Protobuf battery request...")
         try:
             battery = await watch.battery(timeout=timedelta(seconds=10))
@@ -160,7 +160,7 @@ async def main(simulate: bool) -> None:
         except GarminBleError as exc:
             print(f"  {SKIPPED} battery request failed: {exc}")
 
-        # ── Wait out the remaining system checks ──
+        # Wait out the remaining system checks.
         if not progress.all_passed:
             print(f"\n  {WAITING} Still waiting for system events...")
             print("     (time sync, protobuf messages, etc.)\n")
@@ -175,7 +175,7 @@ async def main(simulate: bool) -> None:
 
         event_task.cancel()
 
-        # ── Summary ──
+        # Summary
         total = time.monotonic() - progress.started
         print(f"\n{'=' * 58}")
         print("  WALKTHROUGH SUMMARY")
@@ -192,7 +192,7 @@ async def main(simulate: bool) -> None:
             print(f"\n  {CHECKED} All telemetry OK but some system checks didn't fire.")
             print("     The watch may not send some events spontaneously during this session.")
         else:
-            print(f"\n  {WAITING} Partial success — some features didn't fire.")
+            print(f"\n  {WAITING} Partial success: some features didn't fire.")
             print("     This is normal for services that need movement / time.")
             print("     Run the watch for longer or move around to trigger them.")
 
